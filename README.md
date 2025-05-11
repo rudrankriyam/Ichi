@@ -5,23 +5,3 @@
 ## Overview
 
 Ichi is an experimental project that explores the integration of conversational AI capabilities across iOS, macOS, and visionOS applications.
-
-## Dependencies
-
-Ichi is powered by [SakuraKit](https://github.com/rryam/SakuraKit), providing different API services for AI integration across Apple platforms.
-
-## Getting Started
-
-[This section will contain installation and setup instructions]
-
-## Contributing
-
-[This section will contain contribution guidelines]
-
-## License
-
-[This section will contain license information]
-
-## Contact
-
-[This section will contain contact information]
