@@ -1,4 +1,5 @@
 import SwiftUI
+import Speech
 
 // Enum for the different states of the conversation
 enum ConversationState: CaseIterable {
@@ -192,13 +193,65 @@ struct MainView: View {
     @State private var transcriptText: String = ""
     @Environment(\.colorScheme) private var colorScheme
     
-    // Sample transcript texts for different states
+    // Speech recognizer and processor
+    @State private var speechRecognizer = SpeechRecognizer()
+    @State private var onDeviceProcessor = OnDeviceProcessor()
+    
+    // Handle speech recognition state transitions
+    private func handleSpeechRecognition() {
+        switch currentState {
+        case .idle:
+            // Start listening
+            currentState = .listening
+            Task {
+                await speechRecognizer.startListening()
+            }
+            
+        case .listening:
+            // Stop listening and start transcribing
+            currentState = .transcribing
+            Task { @MainActor in
+                speechRecognizer.stopListening()
+                transcriptText = speechRecognizer.transcribedText
+                
+                // Move to processing after a short delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    currentState = .processing
+                    onDeviceProcessor.processTranscribedText(speechRecognizer.transcribedText)
+                }
+            }
+            
+        case .transcribing:
+            // Skip to processing
+            currentState = .processing
+            onDeviceProcessor.processTranscribedText(speechRecognizer.transcribedText)
+            
+        case .processing:
+            // Skip to speaking
+            currentState = .speaking
+            transcriptText = onDeviceProcessor.generatedResponse
+            
+        case .speaking:
+            // Reset to idle
+            currentState = .idle
+            speechRecognizer.reset()
+            onDeviceProcessor.cancelProcessing()
+        }
+        
+        updateTranscriptText()
+    }
+    
+    // Update transcript text based on speech recognizer state
     private func updateTranscriptText() {
         switch currentState {
         case .idle:
             transcriptText = "Tap the button to start a conversation"
         case .listening:
-            transcriptText = "Listening to your voice..."
+            if !speechRecognizer.transcribedText.isEmpty {
+                transcriptText = speechRecognizer.transcribedText
+            } else {
+                transcriptText = "Listening to your voice..."
+            }
         case .transcribing:
             transcriptText = "Converting your speech to text..."
         case .processing:
@@ -303,27 +356,19 @@ struct MainView: View {
                     }
                     
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        withAnimation {
                             buttonScale = 1.0
                         }
                     }
                     
-                    // Cycle through states for demonstration
-                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
-                        let allCases = ConversationState.allCases
-                        if let currentIndex = allCases.firstIndex(of: currentState) {
-                            let nextIndex = (currentIndex + 1) % allCases.count
-                            currentState = allCases[nextIndex]
-                            updateTranscriptText()
-                        }
-                    }
-                }) {
+                    // Handle speech recognition state transitions
+                    handleSpeechRecognition()
+                })
+                {
                     ZStack {
                         // Button background
                         Circle()
-                            .fill(
-                                .ultraThinMaterial
-                            )
+                            .fill(.ultraThinMaterial)
                             .overlay(
                                 Circle()
                                     .stroke(currentState.color, lineWidth: 2)
@@ -353,6 +398,21 @@ struct MainView: View {
         }
         .onAppear {
             updateTranscriptText()
+            
+            // Request speech recognition authorization when the view appears
+            Task {
+                _ = await speechRecognizer.requestAuthorization()
+            }
+        }
+        .onChange(of: speechRecognizer.transcribedText) { _, newValue in
+            if currentState == .listening && !newValue.isEmpty {
+                transcriptText = newValue
+            }
+        }
+        .onChange(of: onDeviceProcessor.generatedResponse) { _, newValue in
+            if currentState == .processing && !newValue.isEmpty {
+                transcriptText = newValue
+            }
         }
     }
 }

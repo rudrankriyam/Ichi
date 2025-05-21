@@ -15,35 +15,34 @@ import Tokenizers
 @Observable
 final class OnDeviceProcessor {
     // MARK: - Properties
-    
+
     // State properties
     var isProcessing = false
     var transcribedText = ""
     var generatedResponse = ""
     var modelInfo = ""
-    var performanceStats = ""
-    
+
     // Configuration properties
     var modelConfiguration = LLMRegistry.qwen3_1_7b_4bit
     var generateParameters = GenerateParameters(maxTokens: 240, temperature: 0.6)
     let updateInterval = Duration.seconds(0.25)
-    
+
     // Tool configuration
     var includeWeatherTool = false
     var enableThinking = false
-    
+
     // Processing task
     private var processingTask: Task<Void, Error>?
-    
+
     // MARK: - Model Loading
-    
+
     enum LoadState {
         case idle
         case loaded(ModelContainer)
     }
-    
+
     private var loadState = LoadState.idle
-    
+
     /// Loads the model if not already loaded
     @MainActor
     func loadModel() async throws -> ModelContainer {
@@ -51,7 +50,7 @@ final class OnDeviceProcessor {
         case .idle:
             // Limit the buffer cache to optimize memory usage
             MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
-            
+
             let modelContainer = try await LLMModelFactory.shared.loadContainer(
                 configuration: modelConfiguration
             ) { [modelConfiguration] progress in
@@ -59,37 +58,37 @@ final class OnDeviceProcessor {
                     self.modelInfo = "Downloading \(modelConfiguration.name): \(Int(progress.fractionCompleted * 100))%"
                 }
             }
-            
+
             let numParams = await modelContainer.perform { context in
                 context.model.numParameters()
             }
-            
+
             self.modelInfo = "Loaded \(modelConfiguration.id). Weights: \(numParams / (1024*1024))M"
             loadState = .loaded(modelContainer)
             return modelContainer
-            
+
         case .loaded(let modelContainer):
             return modelContainer
         }
     }
-    
+
     // MARK: - Processing Methods
-    
+
     /// Process the transcribed text and generate a response
     @MainActor
     func processTranscribedText(_ text: String) {
         guard !isProcessing else { return }
-        
+
         self.transcribedText = text
         self.generatedResponse = ""
-        
+
         processingTask = Task {
             isProcessing = true
             await generateResponse(for: text)
             isProcessing = false
         }
     }
-    
+
     /// Generate a response for the given input text
     @MainActor
     private func generateResponse(for text: String) async {
@@ -97,35 +96,26 @@ final class OnDeviceProcessor {
             .system("You are a helpful assistant"),
             .user(text),
         ]
-        
+
         let userInput = UserInput(
             chat: chat, additionalContext: ["enable_thinking": enableThinking])
-        
+
         do {
             let modelContainer = try await loadModel()
-            
+
             // Set a random seed for generation
             MLXRandom.seed(UInt64(Date.timeIntervalSinceReferenceDate * 1000))
-            
+
             try await modelContainer.perform { (context: ModelContext) -> Void in
                 let lmInput = try await context.processor.prepare(input: userInput)
                 let stream = try MLXLMCommon.generate(
                     input: lmInput, parameters: generateParameters, context: context)
-                
+
                 // Generate and output in batches
-                for await batch in stream._throttle(
-                    for: updateInterval, reducing: Generation.collect)
-                {
-                    let output = batch.compactMap { $0.chunk }.joined(separator: "")
-                    if !output.isEmpty {
-                        Task { @MainActor [output] in
-                            self.generatedResponse += output
-                        }
-                    }
-                    
-                    if let completion = batch.compactMap({ $0.info }).first {
-                        Task { @MainActor in
-                            self.performanceStats = "\(completion.tokensPerSecond) tokens/s"
+                for await output in stream {
+                    if let chunk = output.chunk {
+                        Task { @MainActor [chunk] in
+                            self.generatedResponse += chunk
                         }
                     }
                 }
@@ -134,41 +124,41 @@ final class OnDeviceProcessor {
             generatedResponse = "Failed: \(error)"
         }
     }
-    
+
     /// Cancel the current processing task
     @MainActor
     func cancelProcessing() {
         processingTask?.cancel()
         isProcessing = false
     }
-    
+
     // MARK: - Tool Definitions
-    
+
     let currentWeatherToolSpec: [String: any Sendable] =
-        [
-            "type": "function",
-            "function": [
-                "name": "get_current_weather",
-                "description": "Get the current weather in a given location",
-                "parameters": [
-                    "type": "object",
-                    "properties": [
-                        "location": [
-                            "type": "string",
-                            "description": "The city and state, e.g. San Francisco, CA",
-                        ] as [String: String],
-                        "unit": [
-                            "type": "string",
-                            "enum": ["celsius", "fahrenheit"],
-                        ] as [String: any Sendable],
-                    ] as [String: [String: any Sendable]],
-                    "required": ["location"],
-                ] as [String: any Sendable],
+    [
+        "type": "function",
+        "function": [
+            "name": "get_current_weather",
+            "description": "Get the current weather in a given location",
+            "parameters": [
+                "type": "object",
+                "properties": [
+                    "location": [
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA",
+                    ] as [String: String],
+                    "unit": [
+                        "type": "string",
+                        "enum": ["celsius", "fahrenheit"],
+                    ] as [String: any Sendable],
+                ] as [String: [String: any Sendable]],
+                "required": ["location"],
             ] as [String: any Sendable],
-        ] as [String: any Sendable]
-    
+        ] as [String: any Sendable],
+    ] as [String: any Sendable]
+
     // MARK: - Conversation State Management
-    
+
     /// Represents the current state of the conversation
     enum ConversationState {
         case idle
@@ -176,7 +166,7 @@ final class OnDeviceProcessor {
         case transcribing
         case processing
         case speaking
-        
+
         var description: String {
             switch self {
             case .idle: return "Idle"
@@ -187,19 +177,19 @@ final class OnDeviceProcessor {
             }
         }
     }
-    
-    @Published var conversationState: ConversationState = .idle
-    
+
+    var conversationState: ConversationState = .idle
+
     /// Update the conversation state
     @MainActor
     func updateState(_ newState: ConversationState) {
         conversationState = newState
-        
+
         // Start processing if the state is .processing
         if newState == .processing && !transcribedText.isEmpty {
             processTranscribedText(transcribedText)
         }
-        
+
         // Cancel processing if returning to idle
         if newState == .idle && isProcessing {
             cancelProcessing()
