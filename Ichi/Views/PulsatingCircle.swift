@@ -1,3 +1,12 @@
+//
+//  PulsatingCircle.swift
+//  Ichi
+//
+//  Created by Rudrank Riyam on 5/21/25.
+//
+
+import SwiftUI
+
 struct PulsatingCircle: View {
     @State private var pulsate = false
     let color: Color
@@ -19,4 +28,8 @@ struct PulsatingCircle: View {
                 pulsate = true
             }
     }
+}
+
+#Preview {
+    PulsatingCircle(color: .red, startRadius: 20, endRadius: 50)
 }
