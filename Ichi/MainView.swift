@@ -191,7 +191,7 @@ struct MainView: View {
         ttsLogger.info("Starting text-to-speech process for response of length: \(text.count) characters")
         ttsLogger.debug("Calling ttsModel.say() with text input")
                         MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)   
-        ttsModel.say(text, .afSarah, speed: 1.0)
+        ttsModel.say(text, .afJessica, speed: 1.0)
     }
 
     var backgroundGradient: LinearGradient {

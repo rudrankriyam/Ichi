@@ -82,18 +82,18 @@ final class OnDeviceProcessor {
         self.transcribedText = text
         self.generatedResponse = ""
 
-       // processingTask = Task {
-            isProcessing = true
-            await generateResponse(for: text)
-            isProcessing = false
-     //   }
+        // processingTask = Task {
+        isProcessing = true
+        await generateResponse(for: text)
+        isProcessing = false
+        //   }
     }
 
     /// Generate a response for the given input text
     @MainActor
     private func generateResponse(for text: String) async {
         let chat: [Chat.Message] = [
-            .system("You are a helpful assistant"),
+            .system("You are a helpful assistant. Keep your answers short."),
             .user(text),
         ]
 
