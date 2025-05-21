@@ -9,6 +9,9 @@ import Foundation
 import Speech
 import SwiftUI
 import os
+#if os(macOS)
+import AVFoundation
+#endif
 
 @Observable
 final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
@@ -86,9 +89,58 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
         try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
         logger.log("Audio session configured and activated.")
 #else
-        logger.log("Audio session configuration skipped for non-iOS platform.")
+        logger.log("Configuring audio for macOS.")
+        // Log available input devices for debugging
+        logMacOSAudioDevices()
+        // Check macOS permissions
+        checkMacOSPermissions()
+        logger.log("macOS audio configuration completed.")
 #endif
     }
+
+#if os(macOS)
+    /// Log information about available audio devices on macOS
+    private func logMacOSAudioDevices() {
+        logger.log("Checking macOS audio devices...")
+
+        // Get list of audio devices
+        let devices = AVCaptureDevice.devices(for: .audio)
+        logger.log("Found \(devices.count) macOS audio input devices:")
+
+        for (index, device) in devices.enumerated() {
+            logger.log("Device \(index+1): \(device.localizedName) (ID: \(device.uniqueID))")
+        }
+
+        // Check if we have any input devices
+        if devices.isEmpty {
+            logger.error("No audio input devices found on macOS")
+        } else {
+            logger.log("Default device should be: \(devices.first?.localizedName ?? "Unknown")")
+        }
+    }
+
+    /// Check for macOS-specific permissions
+    private func checkMacOSPermissions() {
+        logger.log("Checking macOS permissions...")
+
+        // Check for microphone permissions on macOS
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            logger.log("macOS microphone access is authorized")
+        case .notDetermined:
+            logger.log("macOS microphone access not determined, requesting access")
+            AVCaptureDevice.requestAccess(for: .audio) { [self] granted in
+                self.logger.log("macOS microphone access \(granted ? "granted" : "denied")")
+            }
+        case .denied:
+            logger.error("macOS microphone access denied")
+        case .restricted:
+            logger.error("macOS microphone access restricted")
+        @unknown default:
+            logger.error("Unknown macOS microphone access status")
+        }
+    }
+#endif
 
     // MARK: - Speech Recognition Methods
 
@@ -146,6 +198,18 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
             let recordingFormat = inputNode.outputFormat(forBus: 0)
             logger.log("Audio input node recording format: \(recordingFormat.description)")
 
+#if os(macOS)
+            // macOS-specific logging and configuration
+            logger.log("macOS input node details: \(inputNode)")
+            logger.log("macOS input node channels: \(recordingFormat.channelCount), sample rate: \(recordingFormat.sampleRate)")
+
+            // Check if the audio engine has input
+            if audioEngine.inputNode.numberOfInputs == 0 {
+                logger.error("macOS audio engine has no inputs available")
+                throw NSError(domain: "SpeechRecognizerErrorDomain", code: 1, userInfo: [NSLocalizedDescriptionKey: "No audio input available on this Mac"])
+            }
+#endif
+
             inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
                 self?.recognitionRequest?.append(buffer)
             }
@@ -153,8 +217,26 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
 
             // Start audio engine
             audioEngine.prepare()
-            try audioEngine.start()
-            logger.log("Audio engine started.")
+
+            do {
+                try audioEngine.start()
+                logger.log("Audio engine started successfully.")
+            } catch {
+                logger.error("Failed to start audio engine: \(error.localizedDescription)")
+#if os(macOS)
+                // Additional macOS-specific error handling
+                let nsError = error as NSError
+                logger.error("macOS audio engine error - domain: \(nsError.domain), code: \(nsError.code)")
+
+                // Check for common macOS issues
+                if nsError.domain == NSOSStatusErrorDomain {
+                    logger.error("macOS audio status error. This often means permission issues or no input device.")
+                    throw NSError(domain: "SpeechRecognizerErrorDomain", code: 2,
+                                  userInfo: [NSLocalizedDescriptionKey: "Could not access microphone. Please check your Mac's privacy settings."])
+                }
+#endif
+                throw error
+            }
 
             recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
                 guard let self = self else { return }
