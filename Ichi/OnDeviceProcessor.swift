@@ -76,17 +76,17 @@ final class OnDeviceProcessor {
 
     /// Process the transcribed text and generate a response
     @MainActor
-    func processTranscribedText(_ text: String) {
+    func processTranscribedText(_ text: String) async {
         guard !isProcessing else { return }
 
         self.transcribedText = text
         self.generatedResponse = ""
 
-        processingTask = Task {
+       // processingTask = Task {
             isProcessing = true
             await generateResponse(for: text)
             isProcessing = false
-        }
+     //   }
     }
 
     /// Generate a response for the given input text
@@ -179,20 +179,4 @@ final class OnDeviceProcessor {
     }
 
     var conversationState: ConversationState = .idle
-
-    /// Update the conversation state
-    @MainActor
-    func updateState(_ newState: ConversationState) {
-        conversationState = newState
-
-        // Start processing if the state is .processing
-        if newState == .processing && !transcribedText.isEmpty {
-            processTranscribedText(transcribedText)
-        }
-
-        // Cancel processing if returning to idle
-        if newState == .idle && isProcessing {
-            cancelProcessing()
-        }
-    }
 }

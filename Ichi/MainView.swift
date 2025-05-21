@@ -95,10 +95,10 @@ struct MainView: View {
     @State private var transcriptText: String = ""
     @Environment(\.colorScheme) private var colorScheme
     @Environment(OnDeviceProcessor.self) var processor
-    
+
     // Text-to-speech model
     @StateObject private var ttsModel = KokoroTTSModel()
-    
+
     // Logger for TTS functionality
     private let ttsLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.rudrankriyam.ichi", category: "TextToSpeech")
 
@@ -107,14 +107,13 @@ struct MainView: View {
     @State private var onDeviceProcessor = OnDeviceProcessor()
 
     // Handle speech recognition state transitions
-    private func handleSpeechRecognition() {
+    private func handleSpeechRecognition() async {
         switch currentState {
         case .idle:
             // Start listening
             currentState = .listening
-            Task {
-                await speechRecognizer.startListening()
-            }
+            await speechRecognizer.startListening()
+
 
         case .listening:
             // Stop listening and start transcribing
@@ -124,23 +123,23 @@ struct MainView: View {
                 transcriptText = speechRecognizer.transcribedText
 
                 // Move to processing after a short delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    currentState = .processing
-                    onDeviceProcessor.processTranscribedText(speechRecognizer.transcribedText)
-                }
+                currentState = .processing
+                await onDeviceProcessor.processTranscribedText(speechRecognizer.transcribedText)
+
+                currentState = .playing
+                // Speak the response using Kokoro TTS
+                ttsLogger.info("Starting text-to-speech for generated response")
+                speakResponse(onDeviceProcessor.generatedResponse)
             }
 
         case .transcribing:
-            // Skip to processing
             currentState = .processing
-            onDeviceProcessor.processTranscribedText(speechRecognizer.transcribedText)
-
+            await  onDeviceProcessor.processTranscribedText(speechRecognizer.transcribedText)
         case .processing:
             // Skip to playing
             ttsLogger.info("Transitioning from processing to playing state")
-            currentState = .playing
             transcriptText = onDeviceProcessor.generatedResponse
-            
+            currentState = .playing
             // Speak the response using Kokoro TTS
             ttsLogger.info("Starting text-to-speech for generated response")
             speakResponse(onDeviceProcessor.generatedResponse)
@@ -151,7 +150,7 @@ struct MainView: View {
             currentState = .idle
             speechRecognizer.reset()
             onDeviceProcessor.cancelProcessing()
-            
+
             // Stop any ongoing TTS playback
             ttsLogger.info("Stopping TTS playback")
             ttsModel.stopPlayback()
@@ -186,7 +185,7 @@ struct MainView: View {
             transcriptText = "An error occurred, please try again."
         }
     }
-    
+
     // Function to speak the response using Kokoro TTS
     private func speakResponse(_ text: String) {
         ttsLogger.info("Starting text-to-speech process for response of length: \(text.count) characters")
@@ -294,8 +293,9 @@ struct MainView: View {
                         }
                     }
 
-                    // Handle speech recognition state transitions
-                    handleSpeechRecognition()
+                    Task {
+                        await handleSpeechRecognition()
+                    }
                 })
                 {
                     ZStack {
@@ -332,7 +332,6 @@ struct MainView: View {
         .onAppear {
             updateTranscriptText()
 
-            // Request speech recognition authorization when the view appears
             Task {
                 _ = await speechRecognizer.requestAuthorization()
             }
@@ -348,7 +347,6 @@ struct MainView: View {
             }
         }
         .onChange(of: ttsModel.isAudioPlaying) { _, isPlaying in
-            // When audio stops playing, return to idle state if we're in playing state
             if !isPlaying && currentState == .playing {
                 ttsLogger.info("TTS playback completed, transitioning to idle state")
                 currentState = .idle
