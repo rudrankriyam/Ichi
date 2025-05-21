@@ -1,0 +1,362 @@
+import SwiftUI
+
+// Enum for the different states of the conversation
+enum ConversationState: CaseIterable {
+    case idle
+    case listening
+    case transcribing
+    case processing
+    case speaking
+    
+    var description: String {
+        switch self {
+        case .idle: return "Tap to Start"
+        case .listening: return "Listening..."
+        case .transcribing: return "Transcribing..."
+        case .processing: return "Processing..."
+        case .speaking: return "Speaking..."
+        }
+    }
+    
+    var SFSymbolName: String {
+        switch self {
+        case .idle: return "mic.circle.fill"
+        case .listening: return "waveform.circle.fill"
+        case .transcribing: return "text.bubble.fill"
+        case .processing: return "gearshape.circle.fill"
+        case .speaking: return "speaker.wave.2.circle.fill"
+        }
+    }
+    
+    var color: Color {
+        switch self {
+        case .idle: return Color.blue
+        case .listening: return Color.blue
+        case .transcribing: return Color.orange
+        case .processing: return Color.purple
+        case .speaking: return Color.green
+        }
+    }
+    
+    var secondaryColor: Color {
+        self.color.opacity(0.2)
+    }
+    
+    var tertiaryColor: Color {
+        self.color.opacity(0.1)
+    }
+}
+
+struct PulsatingCircle: View {
+    @State private var pulsate = false
+    let color: Color
+    let startRadius: CGFloat
+    let endRadius: CGFloat
+    
+    var body: some View {
+        Circle()
+            .fill(color)
+            .frame(width: pulsate ? endRadius : startRadius,
+                   height: pulsate ? endRadius : startRadius)
+            .opacity(pulsate ? 0 : 0.5)
+            .animation(
+                Animation.easeInOut(duration: 1.5)
+                    .repeatForever(autoreverses: false),
+                value: pulsate
+            )
+            .onAppear {
+                pulsate = true
+            }
+    }
+}
+
+struct WaveformView: View {
+    let state: ConversationState
+    @State private var animating = false
+    
+    var body: some View {
+        if state == .listening {
+            HStack(spacing: 4) {
+                ForEach(0..<5) { i in
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(state.color)
+                        .frame(width: 4, height: animating ? CGFloat.random(in: 10...30) : 5)
+                        .animation(
+                            Animation.easeInOut(duration: 0.5)
+                                .repeatForever()
+                                .delay(Double(i) * 0.1),
+                            value: animating
+                        )
+                }
+            }
+            .onAppear {
+                animating = true
+            }
+            .onDisappear {
+                animating = false
+            }
+        } else {
+            EmptyView()
+        }
+    }
+}
+
+struct TypewriterView: View {
+    let state: ConversationState
+    @State private var cursorVisible = false
+    
+    var body: some View {
+        if state == .transcribing {
+            HStack(spacing: 0) {
+                Text("abc")
+                    .foregroundColor(state.color)
+                Rectangle()
+                    .fill(state.color)
+                    .frame(width: 2, height: 16)
+                    .opacity(cursorVisible ? 1 : 0)
+                    .animation(
+                        Animation.easeInOut(duration: 0.6)
+                            .repeatForever(),
+                        value: cursorVisible
+                    )
+            }
+            .onAppear {
+                cursorVisible = true
+            }
+            .onDisappear {
+                cursorVisible = false
+            }
+        } else {
+            EmptyView()
+        }
+    }
+}
+
+struct ProcessingView: View {
+    let state: ConversationState
+    @State private var rotation: Double = 0
+    
+    var body: some View {
+        if state == .processing {
+            Image(systemName: "gearshape")
+                .font(.system(size: 16))
+                .foregroundColor(state.color)
+                .rotationEffect(.degrees(rotation))
+                .animation(
+                    Animation.linear(duration: 2)
+                        .repeatForever(autoreverses: false),
+                    value: rotation
+                )
+                .onAppear {
+                    rotation = 360
+                }
+                .onDisappear {
+                    rotation = 0
+                }
+        } else {
+            EmptyView()
+        }
+    }
+}
+
+struct SpeakingView: View {
+    let state: ConversationState
+    @State private var scale: CGFloat = 1.0
+    
+    var body: some View {
+        if state == .speaking {
+            Image(systemName: "speaker.wave.2")
+                .font(.system(size: 16))
+                .foregroundColor(state.color)
+                .scaleEffect(scale)
+                .animation(
+                    Animation.easeInOut(duration: 0.5)
+                        .repeatForever(autoreverses: true),
+                    value: scale
+                )
+                .onAppear {
+                    scale = 1.2
+                }
+                .onDisappear {
+                    scale = 1.0
+                }
+        } else {
+            EmptyView()
+        }
+    }
+}
+
+struct MainView: View {
+    @State private var currentState: ConversationState = .idle
+    @State private var buttonScale: CGFloat = 1.0
+    @State private var transcriptText: String = ""
+    @Environment(\.colorScheme) private var colorScheme
+    
+    // Sample transcript texts for different states
+    private func updateTranscriptText() {
+        switch currentState {
+        case .idle:
+            transcriptText = "Tap the button to start a conversation"
+        case .listening:
+            transcriptText = "Listening to your voice..."
+        case .transcribing:
+            transcriptText = "Converting your speech to text..."
+        case .processing:
+            transcriptText = "Thinking about your request..."
+        case .speaking:
+            transcriptText = "Here's what I found for you..."
+        }
+    }
+    
+    var backgroundGradient: LinearGradient {
+        LinearGradient(
+            gradient: Gradient(colors: [
+                colorScheme == .dark ? Color.black : Color.white,
+                colorScheme == .dark ? Color.black.opacity(0.8) : Color.white.opacity(0.8),
+                currentState.tertiaryColor
+            ]),
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+    
+    var body: some View {
+        ZStack {
+            // Background
+            backgroundGradient
+                .ignoresSafeArea()
+            
+            VStack(spacing: 30) {
+                // Status area
+                VStack(spacing: 16) {
+                    Image(systemName: currentState.SFSymbolName)
+                        .font(.system(size: 36, weight: .light))
+                        .foregroundColor(currentState.color)
+                        .frame(width: 80, height: 80)
+                        .background(
+                            ZStack {
+                                Circle()
+                                    .fill(currentState.secondaryColor)
+                                if currentState != .idle {
+                                    PulsatingCircle(
+                                        color: currentState.tertiaryColor,
+                                        startRadius: 80,
+                                        endRadius: 120
+                                    )
+                                }
+                            }
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(currentState.color.opacity(0.3), lineWidth: 1)
+                        )
+                    
+                    Text(currentState.description)
+                        .font(.system(size: 20, weight: .medium, design: .rounded))
+                        .foregroundColor(currentState.color)
+                    
+                    // State-specific animation views
+                    Group {
+                        WaveformView(state: currentState)
+                        TypewriterView(state: currentState)
+                        ProcessingView(state: currentState)
+                        SpeakingView(state: currentState)
+                    }
+                    .frame(height: 30)
+                }
+                .padding(.top, 60)
+                
+                // Transcript area
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Transcript")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 4)
+                    
+                    Text(transcriptText)
+                        .font(.system(size: 16, weight: .regular, design: .rounded))
+                        .foregroundColor(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(colorScheme == .dark ? Color(.darkGray).opacity(0.3) : Color(.gray))
+                        )
+                        .animation(.easeInOut, value: transcriptText)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 24)
+                
+                Spacer()
+                
+                // Main action button
+                Button(action: {
+                    // Haptic feedback
+                    #if os(iOS)
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
+                    #endif
+                    
+                    // Button press animation
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        buttonScale = 0.9
+                    }
+                    
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            buttonScale = 1.0
+                        }
+                    }
+                    
+                    // Cycle through states for demonstration
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                        let allCases = ConversationState.allCases
+                        if let currentIndex = allCases.firstIndex(of: currentState) {
+                            let nextIndex = (currentIndex + 1) % allCases.count
+                            currentState = allCases[nextIndex]
+                            updateTranscriptText()
+                        }
+                    }
+                }) {
+                    ZStack {
+                        // Button background
+                        Circle()
+                            .fill(
+                                .ultraThinMaterial
+                            )
+                            .overlay(
+                                Circle()
+                                    .stroke(currentState.color, lineWidth: 2)
+                            )
+                            .shadow(color: currentState.color.opacity(0.3), radius: 10, x: 0, y: 5)
+                            .frame(width: 80, height: 80)
+                        
+                        // Button icon
+                        Image(systemName: currentState == .idle ? "mic.fill" : "stop.fill")
+                            .font(.system(size: 30, weight: .medium))
+                            .foregroundColor(currentState.color)
+                        
+                        // Pulsating effect when active
+                        if currentState != .idle {
+                            Circle()
+                                .stroke(currentState.color.opacity(0.5), lineWidth: 2)
+                                .frame(width: 90, height: 90)
+                                .scaleEffect(buttonScale)
+                        }
+                    }
+                    .scaleEffect(buttonScale)
+                }
+                .buttonStyle(PlainButtonStyle())
+                .padding(.bottom, 60)
+            }
+            .padding(.horizontal)
+        }
+        .onAppear {
+            updateTranscriptText()
+        }
+    }
+}
+
+#Preview {
+    MainView()
+}
