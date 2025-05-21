@@ -1,6 +1,8 @@
 import SwiftUI
 import Speech
-
+import MLX
+import os.log
+import Swift_TTS
 
 struct TypewriterView: View {
     let state: AppState
@@ -93,6 +95,12 @@ struct MainView: View {
     @State private var transcriptText: String = ""
     @Environment(\.colorScheme) private var colorScheme
     @Environment(OnDeviceProcessor.self) var processor
+    
+    // Text-to-speech model
+    @StateObject private var ttsModel = KokoroTTSModel()
+    
+    // Logger for TTS functionality
+    private let ttsLogger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.rudrankriyam.ichi", category: "TextToSpeech")
 
     // Speech recognizer and processor
     @State private var speechRecognizer = SpeechRecognizer()
@@ -129,14 +137,24 @@ struct MainView: View {
 
         case .processing:
             // Skip to playing
+            ttsLogger.info("Transitioning from processing to playing state")
             currentState = .playing
             transcriptText = onDeviceProcessor.generatedResponse
+            
+            // Speak the response using Kokoro TTS
+            ttsLogger.info("Starting text-to-speech for generated response")
+            speakResponse(onDeviceProcessor.generatedResponse)
 
         case .playing:
             // Reset to idle
+            ttsLogger.info("Transitioning from playing to idle state")
             currentState = .idle
             speechRecognizer.reset()
             onDeviceProcessor.cancelProcessing()
+            
+            // Stop any ongoing TTS playback
+            ttsLogger.info("Stopping TTS playback")
+            ttsModel.stopPlayback()
         case .error:
             // Reset to idle
             currentState = .idle
@@ -167,6 +185,13 @@ struct MainView: View {
         case .error:
             transcriptText = "An error occurred, please try again."
         }
+    }
+    
+    // Function to speak the response using Kokoro TTS
+    private func speakResponse(_ text: String) {
+        ttsLogger.info("Starting text-to-speech process for response of length: \(text.count) characters")
+        ttsLogger.debug("Calling ttsModel.say() with text input")
+        ttsModel.say(text, .afSarah, speed: 1.0)
     }
 
     var backgroundGradient: LinearGradient {
@@ -320,6 +345,15 @@ struct MainView: View {
         .onChange(of: onDeviceProcessor.generatedResponse) { _, newValue in
             if currentState == .processing && !newValue.isEmpty {
                 transcriptText = newValue
+            }
+        }
+        .onChange(of: ttsModel.isAudioPlaying) { _, isPlaying in
+            // When audio stops playing, return to idle state if we're in playing state
+            if !isPlaying && currentState == .playing {
+                ttsLogger.info("TTS playback completed, transitioning to idle state")
+                currentState = .idle
+            } else if isPlaying {
+                ttsLogger.info("TTS playback started")
             }
         }
     }
