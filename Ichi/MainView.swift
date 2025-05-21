@@ -127,7 +127,6 @@ struct MainView: View {
                 await onDeviceProcessor.processTranscribedText(speechRecognizer.transcribedText)
 
                 currentState = .playing
-                try? await Task.sleep(for: .seconds(1))
                 // Speak the response using Kokoro TTS
                 ttsLogger.info("Starting text-to-speech for generated response")
                 speakResponse(onDeviceProcessor.generatedResponse)
