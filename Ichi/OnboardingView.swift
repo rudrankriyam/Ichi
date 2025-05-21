@@ -149,10 +149,6 @@ struct OnboardingView: View {
                 }
                 .padding(.vertical, 20)
                 .padding(.horizontal, 30)
-                .background(
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(colorScheme == .dark ? Color(.darkGray).opacity(0.3) : Color(.gray))
-                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 20)
                         .stroke(primaryColor.opacity(0.2), lineWidth: 1)
@@ -176,10 +172,10 @@ struct OnboardingView: View {
                     }
 
                     // Haptic feedback
-                    #if os(iOS)
+#if os(iOS)
                     let generator = UIImpactFeedbackGenerator(style: .medium)
                     generator.impactOccurred()
-                    #endif
+#endif
                 }) {
                     ZStack {
                         // Button background
@@ -215,14 +211,14 @@ struct OnboardingView: View {
             .padding(.horizontal)
         }
         .task {
-            // Parse progress from model info updates
             while !isModelDownloaded { // Keep updating progress until download is complete
                 if let percentStr = processor.modelInfo.split(separator: ":").last?.split(separator: "%").first,
                    let percent = Double(percentStr.trimmingCharacters(in: .whitespaces)) {
                     downloadProgress = percent / 100.0
                 }
+
                 do {
-                    try await Task.sleep(for: .milliseconds(100)) // Sleep for 0.1 seconds
+                    try await Task.sleep(for: .milliseconds(100))
                 } catch {
                     // Handle cancellation or other errors if necessary
                     break

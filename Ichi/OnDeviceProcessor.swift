@@ -63,7 +63,7 @@ final class OnDeviceProcessor {
                 context.model.numParameters()
             }
 
-            self.modelInfo = "Loaded \(modelConfiguration.id). Weights: \(numParams / (1024*1024))M"
+            self.modelInfo = "Loaded \(modelConfiguration.name)"
             loadState = .loaded(modelContainer)
             return modelContainer
 

@@ -239,9 +239,9 @@ struct MainView: View {
                         .foregroundColor(.primary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(16)
-                        .background(
+                        .overlay(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(colorScheme == .dark ? Color(.darkGray).opacity(0.3) : Color(.gray))
+                                .stroke(currentState.color.opacity(0.2), lineWidth: 1)
                         )
                         .animation(.easeInOut, value: transcriptText)
                 }
@@ -253,10 +253,10 @@ struct MainView: View {
                 // Main action button
                 Button(action: {
                     // Haptic feedback
-                    #if os(iOS)
+#if os(iOS)
                     let generator = UIImpactFeedbackGenerator(style: .medium)
                     generator.impactOccurred()
-                    #endif
+#endif
 
                     // Button press animation
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
