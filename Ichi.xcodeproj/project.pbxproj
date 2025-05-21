@@ -10,6 +10,7 @@
 		0A969CB02DDDD1C400A3DF34 /* Swift-TTS in Frameworks */ = {isa = PBXBuildFile; productRef = 0A969CAF2DDDD1C400A3DF34 /* Swift-TTS */; };
 		0A969CB32DDDD25A00A3DF34 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 0A969CB22DDDD25A00A3DF34 /* MLXLLM */; };
 		0A969CB52DDDD25A00A3DF34 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 0A969CB42DDDD25A00A3DF34 /* MLXLMCommon */; };
+		0A9B30422DDDE11500B759BA /* WhisperKit in Frameworks */ = {isa = PBXBuildFile; productRef = 0A9B30412DDDE11500B759BA /* WhisperKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,6 +30,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0A9B30422DDDE11500B759BA /* WhisperKit in Frameworks */,
 				0A969CB32DDDD25A00A3DF34 /* MLXLLM in Frameworks */,
 				0A969CB52DDDD25A00A3DF34 /* MLXLMCommon in Frameworks */,
 				0A969CB02DDDD1C400A3DF34 /* Swift-TTS in Frameworks */,
@@ -85,6 +87,7 @@
 				0A969CAF2DDDD1C400A3DF34 /* Swift-TTS */,
 				0A969CB22DDDD25A00A3DF34 /* MLXLLM */,
 				0A969CB42DDDD25A00A3DF34 /* MLXLMCommon */,
+				0A9B30412DDDE11500B759BA /* WhisperKit */,
 			);
 			productName = Ichi;
 			productReference = 0A528FA32DD12A5100F6F055 /* Ichi.app */;
@@ -117,6 +120,7 @@
 			packageReferences = (
 				0A8B32782DDDCEAB00006081 /* XCRemoteSwiftPackageReference "mlx-audio" */,
 				0A969CB12DDDD25A00A3DF34 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */,
+				0A9B30402DDDE11500B759BA /* XCRemoteSwiftPackageReference "WhisperKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0A528FA42DD12A5100F6F055 /* Products */;
@@ -391,6 +395,14 @@
 				kind = branch;
 			};
 		};
+		0A9B30402DDDE11500B759BA /* XCRemoteSwiftPackageReference "WhisperKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/argmaxinc/WhisperKit.git";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -408,6 +420,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 0A969CB12DDDD25A00A3DF34 /* XCRemoteSwiftPackageReference "mlx-swift-examples" */;
 			productName = MLXLMCommon;
+		};
+		0A9B30412DDDE11500B759BA /* WhisperKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0A9B30402DDDE11500B759BA /* XCRemoteSwiftPackageReference "WhisperKit" */;
+			productName = WhisperKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

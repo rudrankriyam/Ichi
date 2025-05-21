@@ -1,5 +1,5 @@
 {
-  "originHash" : "30312f54c315e264bf4876dc9dd2f31d7d2608ff8227322c1d173f87c71ddec0",
+  "originHash" : "7a8a2a120e7c485d5bfb1d9b22f373e3ca7c9132f161e06823d37cf59230d2ed",
   "pins" : [
     {
       "identity" : "gzipswift",
@@ -80,6 +80,15 @@
       "state" : {
         "revision" : "940a4fac109d7d68817b22382de4894a8ea945c3",
         "version" : "0.1.20"
+      }
+    },
+    {
+      "identity" : "whisperkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/argmaxinc/WhisperKit.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "cd16844c270b7e78bf21d24b1d9ff7bc88e904e4"
       }
     }
   ],

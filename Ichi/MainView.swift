@@ -92,6 +92,7 @@ struct MainView: View {
     @State private var buttonScale: CGFloat = 1.0
     @State private var transcriptText: String = ""
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(OnDeviceProcessor.self) var processor
 
     // Speech recognizer and processor
     @State private var speechRecognizer = SpeechRecognizer()
@@ -322,8 +323,4 @@ struct MainView: View {
             }
         }
     }
-}
-
-#Preview {
-    MainView()
 }
