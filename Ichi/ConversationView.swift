@@ -9,7 +9,7 @@ import SwiftUI
 
 // MARK: - ViewModel
 class ConversationViewModel: ObservableObject {
-    @Published var conversationState: ConversationState = .idle
+    @Published var conversationState: AppState = .idle
     @Published var transcribedText: String = ""
     @Published var assistantMessage: String = ""
 
@@ -25,10 +25,10 @@ class ConversationViewModel: ObservableObject {
             startListening()
         case .listening:
             stopListeningAndProcess()
-        case .transcribing, .processing, .speaking:
+        case .transcribing, .processing, .playing, .error:
             // Optionally, allow to interrupt/cancel current operation
             // For now, we might reset to idle if it's speaking
-            if conversationState == .speaking {
+            if conversationState == .playing {
                 // ttsEngine.stop()
                 conversationState = .idle
             }
@@ -86,13 +86,13 @@ class ConversationViewModel: ObservableObject {
     }
 
     private func speakResponse(_ textToSpeak: String) {
-        conversationState = .speaking
+        conversationState = .playing
         print("ViewModel: Speaking: \(textToSpeak)")
         // TODO: Start TTS with textToSpeak
-        // ttsEngine.speak(textToSpeak) { 
+        // ttsEngine.speak(textToSpeak) {
         //     // Completion handler for TTS
         //     DispatchQueue.main.async {
-        //         if self.conversationState == .speaking { // Ensure state consistency
+        //         if self.conversationState == .playing { // Ensure state consistency
         //            self.conversationState = .idle
         //         }
         //     }
@@ -100,7 +100,7 @@ class ConversationViewModel: ObservableObject {
 
         // Simulate TTS completion
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-             if self.conversationState == .speaking { // Ensure state consistency
+             if self.conversationState == .playing { // Ensure state consistency
                 self.conversationState = .idle
              }
         }

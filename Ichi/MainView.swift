@@ -1,80 +1,10 @@
 import SwiftUI
 import Speech
 
-// Enum for the different states of the conversation
-enum ConversationState: CaseIterable {
-    case idle
-    case listening
-    case transcribing
-    case processing
-    case speaking
-    
-    var description: String {
-        switch self {
-        case .idle: return "Tap to Start"
-        case .listening: return "Listening..."
-        case .transcribing: return "Transcribing..."
-        case .processing: return "Processing..."
-        case .speaking: return "Speaking..."
-        }
-    }
-    
-    var SFSymbolName: String {
-        switch self {
-        case .idle: return "mic.circle.fill"
-        case .listening: return "waveform.circle.fill"
-        case .transcribing: return "text.bubble.fill"
-        case .processing: return "gearshape.circle.fill"
-        case .speaking: return "speaker.wave.2.circle.fill"
-        }
-    }
-    
-    var color: Color {
-        switch self {
-        case .idle: return Color.blue
-        case .listening: return Color.blue
-        case .transcribing: return Color.orange
-        case .processing: return Color.purple
-        case .speaking: return Color.green
-        }
-    }
-    
-    var secondaryColor: Color {
-        self.color.opacity(0.2)
-    }
-    
-    var tertiaryColor: Color {
-        self.color.opacity(0.1)
-    }
-}
-
-struct PulsatingCircle: View {
-    @State private var pulsate = false
-    let color: Color
-    let startRadius: CGFloat
-    let endRadius: CGFloat
-    
-    var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: pulsate ? endRadius : startRadius,
-                   height: pulsate ? endRadius : startRadius)
-            .opacity(pulsate ? 0 : 0.5)
-            .animation(
-                Animation.easeInOut(duration: 1.5)
-                    .repeatForever(autoreverses: false),
-                value: pulsate
-            )
-            .onAppear {
-                pulsate = true
-            }
-    }
-}
-
 struct WaveformView: View {
-    let state: ConversationState
+    let state: AppState
     @State private var animating = false
-    
+
     var body: some View {
         if state == .listening {
             HStack(spacing: 4) {
@@ -103,9 +33,9 @@ struct WaveformView: View {
 }
 
 struct TypewriterView: View {
-    let state: ConversationState
+    let state: AppState
     @State private var cursorVisible = false
-    
+
     var body: some View {
         if state == .transcribing {
             HStack(spacing: 0) {
@@ -134,9 +64,9 @@ struct TypewriterView: View {
 }
 
 struct ProcessingView: View {
-    let state: ConversationState
+    let state: AppState
     @State private var rotation: Double = 0
-    
+
     var body: some View {
         if state == .processing {
             Image(systemName: "gearshape")
@@ -161,11 +91,11 @@ struct ProcessingView: View {
 }
 
 struct SpeakingView: View {
-    let state: ConversationState
+    let state: AppState
     @State private var scale: CGFloat = 1.0
-    
+
     var body: some View {
-        if state == .speaking {
+        if state == .playing {
             Image(systemName: "speaker.wave.2")
                 .font(.system(size: 16))
                 .foregroundColor(state.color)
@@ -188,15 +118,15 @@ struct SpeakingView: View {
 }
 
 struct MainView: View {
-    @State private var currentState: ConversationState = .idle
+    @State private var currentState: AppState = .idle
     @State private var buttonScale: CGFloat = 1.0
     @State private var transcriptText: String = ""
     @Environment(\.colorScheme) private var colorScheme
-    
+
     // Speech recognizer and processor
     @State private var speechRecognizer = SpeechRecognizer()
     @State private var onDeviceProcessor = OnDeviceProcessor()
-    
+
     // Handle speech recognition state transitions
     private func handleSpeechRecognition() {
         switch currentState {
@@ -206,41 +136,46 @@ struct MainView: View {
             Task {
                 await speechRecognizer.startListening()
             }
-            
+
         case .listening:
             // Stop listening and start transcribing
             currentState = .transcribing
             Task { @MainActor in
                 speechRecognizer.stopListening()
                 transcriptText = speechRecognizer.transcribedText
-                
+
                 // Move to processing after a short delay
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     currentState = .processing
                     onDeviceProcessor.processTranscribedText(speechRecognizer.transcribedText)
                 }
             }
-            
+
         case .transcribing:
             // Skip to processing
             currentState = .processing
             onDeviceProcessor.processTranscribedText(speechRecognizer.transcribedText)
-            
+
         case .processing:
-            // Skip to speaking
-            currentState = .speaking
+            // Skip to playing
+            currentState = .playing
             transcriptText = onDeviceProcessor.generatedResponse
-            
-        case .speaking:
+
+        case .playing:
+            // Reset to idle
+            currentState = .idle
+            speechRecognizer.reset()
+            onDeviceProcessor.cancelProcessing()
+        case .error:
             // Reset to idle
             currentState = .idle
             speechRecognizer.reset()
             onDeviceProcessor.cancelProcessing()
         }
-        
+
         updateTranscriptText()
     }
-    
+
     // Update transcript text based on speech recognizer state
     private func updateTranscriptText() {
         switch currentState {
@@ -256,11 +191,13 @@ struct MainView: View {
             transcriptText = "Converting your speech to text..."
         case .processing:
             transcriptText = "Thinking about your request..."
-        case .speaking:
+        case .playing:
             transcriptText = "Here's what I found for you..."
+        case .error:
+            transcriptText = "An error occurred, please try again."
         }
     }
-    
+
     var backgroundGradient: LinearGradient {
         LinearGradient(
             gradient: Gradient(colors: [
@@ -272,13 +209,13 @@ struct MainView: View {
             endPoint: .bottom
         )
     }
-    
+
     var body: some View {
         ZStack {
             // Background
             backgroundGradient
                 .ignoresSafeArea()
-            
+
             VStack(spacing: 30) {
                 // Status area
                 VStack(spacing: 16) {
@@ -303,11 +240,11 @@ struct MainView: View {
                             Circle()
                                 .stroke(currentState.color.opacity(0.3), lineWidth: 1)
                         )
-                    
+
                     Text(currentState.description)
                         .font(.system(size: 20, weight: .medium, design: .rounded))
                         .foregroundColor(currentState.color)
-                    
+
                     // State-specific animation views
                     Group {
                         WaveformView(state: currentState)
@@ -318,14 +255,14 @@ struct MainView: View {
                     .frame(height: 30)
                 }
                 .padding(.top, 60)
-                
+
                 // Transcript area
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Transcript")
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundColor(.secondary)
                         .padding(.leading, 4)
-                    
+
                     Text(transcriptText)
                         .font(.system(size: 16, weight: .regular, design: .rounded))
                         .foregroundColor(.primary)
@@ -339,9 +276,9 @@ struct MainView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 24)
-                
+
                 Spacer()
-                
+
                 // Main action button
                 Button(action: {
                     // Haptic feedback
@@ -349,18 +286,18 @@ struct MainView: View {
                     let generator = UIImpactFeedbackGenerator(style: .medium)
                     generator.impactOccurred()
                     #endif
-                    
+
                     // Button press animation
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                         buttonScale = 0.9
                     }
-                    
+
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         withAnimation {
                             buttonScale = 1.0
                         }
                     }
-                    
+
                     // Handle speech recognition state transitions
                     handleSpeechRecognition()
                 })
@@ -375,12 +312,12 @@ struct MainView: View {
                             )
                             .shadow(color: currentState.color.opacity(0.3), radius: 10, x: 0, y: 5)
                             .frame(width: 80, height: 80)
-                        
+
                         // Button icon
                         Image(systemName: currentState == .idle ? "mic.fill" : "stop.fill")
                             .font(.system(size: 30, weight: .medium))
                             .foregroundColor(currentState.color)
-                        
+
                         // Pulsating effect when active
                         if currentState != .idle {
                             Circle()
@@ -398,7 +335,7 @@ struct MainView: View {
         }
         .onAppear {
             updateTranscriptText()
-            
+
             // Request speech recognition authorization when the view appears
             Task {
                 _ = await speechRecognizer.requestAuthorization()
