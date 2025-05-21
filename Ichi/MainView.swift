@@ -127,6 +127,7 @@ struct MainView: View {
                 await onDeviceProcessor.processTranscribedText(speechRecognizer.transcribedText)
 
                 currentState = .playing
+                try? await Task.sleep(for: .seconds(1))
                 // Speak the response using Kokoro TTS
                 ttsLogger.info("Starting text-to-speech for generated response")
                 speakResponse(onDeviceProcessor.generatedResponse)
@@ -190,6 +191,7 @@ struct MainView: View {
     private func speakResponse(_ text: String) {
         ttsLogger.info("Starting text-to-speech process for response of length: \(text.count) characters")
         ttsLogger.debug("Calling ttsModel.say() with text input")
+                        MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)   
         ttsModel.say(text, .afSarah, speed: 1.0)
     }
 
