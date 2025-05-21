@@ -1,3 +1,12 @@
+//
+//  WaveformView.swift
+//  Ichi
+//
+//  Created by Rudrank Riyam on 5/21/25.
+//
+
+import SwiftUI
+
 struct WaveformView: View {
     let state: AppState
     @State private var animating = false
@@ -27,4 +36,9 @@ struct WaveformView: View {
             EmptyView()
         }
     }
+}
+
+#Preview {
+    WaveformView(state: .listening)
+        .frame(width: 100, height: 50)
 }

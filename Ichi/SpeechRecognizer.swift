@@ -2,15 +2,16 @@
 //  SpeechRecognizer.swift
 //  Ichi
 //
+//  Created by Rudrank Riyam on 21/05/25.
+//
 
 import Foundation
 import Speech
 import SwiftUI
+import os
 
-/// A class that handles speech recognition using Apple's Speech framework
 @Observable
 final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
-    // MARK: - Properties
 
     // State properties
     var isListening = false
@@ -24,13 +25,13 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
     private var recognitionTask: SFSpeechRecognitionTask?
     private let audioEngine = AVAudioEngine()
 
-    // MARK: - Initialization
+    private let logger = Logger(subsystem: "com.rudrankriyam.Ichi", category: "SpeechRecognizer")
 
     override init() {
-        // Initialize with the user's locale
         speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: Locale.current.identifier))
         super.init()
         speechRecognizer?.delegate = self
+        logger.log("SpeechRecognizer initialized.")
     }
 
     // MARK: - Recognition State
@@ -58,6 +59,7 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
 
     /// Request authorization for speech recognition
     func requestAuthorization() async -> Bool {
+        logger.log("Requesting speech recognition authorization.")
         do {
             // Add completion handler to make it work with async/await
             let status = try await withCheckedThrowingContinuation { continuation in
@@ -65,8 +67,11 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
                     continuation.resume(returning: status)
                 }
             }
-            return status == .authorized
+            let authorized = status == .authorized
+            logger.log("Speech recognition authorization status: \(authorized ? "Authorized" : "Not Authorized")")
+            return authorized
         } catch {
+            logger.error("Failed to request authorization: \(error.localizedDescription)")
             errorMessage = "Failed to request authorization: \(error.localizedDescription)"
             return false
         }
@@ -74,11 +79,15 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
 
     /// Configure audio session based on platform
     private func configureAudioSession() throws {
-        #if os(iOS)
+#if os(iOS)
+        logger.log("Configuring audio session for iOS.")
         let audioSession = AVAudioSession.sharedInstance()
         try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
         try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-        #endif
+        logger.log("Audio session configured and activated.")
+#else
+        logger.log("Audio session configuration skipped for non-iOS platform.")
+#endif
     }
 
     // MARK: - Speech Recognition Methods
@@ -86,12 +95,17 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
     /// Start listening and transcribing speech
     @MainActor
     func startListening() async {
+        logger.log("Attempting to start listening.")
         // Check if already listening
-        guard !isListening else { return }
+        guard !isListening else {
+            logger.warning("Already listening, startListening() aborted.")
+            return
+        }
 
         // Check authorization
         let isAuthorized = await requestAuthorization()
         guard isAuthorized else {
+            logger.error("Speech recognition not authorized. Cannot start listening.")
             recognitionState = .error
             errorMessage = "Speech recognition not authorized"
             return
@@ -99,127 +113,175 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
 
         // Check if speech recognizer is available
         guard let speechRecognizer = speechRecognizer, speechRecognizer.isAvailable else {
+            logger.error("Speech recognizer not available. Cannot start listening.")
             recognitionState = .error
             errorMessage = "Speech recognizer not available"
             return
         }
 
         do {
+            logger.log("Configuring audio session and recognition request.")
             // Configure audio session
             try configureAudioSession()
 
             // Clear previous task if any
-            recognitionTask?.cancel()
-            recognitionTask = nil
+            if recognitionTask != nil {
+                logger.log("Cancelling previous recognition task.")
+                recognitionTask?.cancel()
+                recognitionTask = nil
+            }
 
             // Create and configure the speech recognition request
             recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
             guard let recognitionRequest = recognitionRequest else {
+                logger.critical("Unable to create SFSpeechAudioBufferRecognitionRequest.")
                 throw NSError(domain: "SpeechRecognizerErrorDomain", code: 0, userInfo: [NSLocalizedDescriptionKey: "Unable to create recognition request"])
             }
 
             recognitionRequest.shouldReportPartialResults = true
+            logger.log("Recognition request configured for partial results.")
 
             // Configure audio input
             let inputNode = audioEngine.inputNode
             let recordingFormat = inputNode.outputFormat(forBus: 0)
+            logger.log("Audio input node recording format: \(recordingFormat.description)")
 
             inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
                 self?.recognitionRequest?.append(buffer)
             }
+            logger.log("Input node tap installed.")
 
             // Start audio engine
             audioEngine.prepare()
             try audioEngine.start()
+            logger.log("Audio engine started.")
 
-            // Start recognition task
             recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { [weak self] result, error in
                 guard let self = self else { return }
 
                 var isFinal = false
 
                 if let result = result {
-                    // Update transcribed text
                     Task { @MainActor in
+                        self.logger.debug("Partial transcription: \"\(result.bestTranscription.formattedString)\"")
                         self.transcribedText = result.bestTranscription.formattedString
                         self.recognitionState = .transcribing
                     }
                     isFinal = result.isFinal
                 }
 
-                // Handle completion or error
-                if error != nil || isFinal {
-                    Task { @MainActor in
-                        self.audioEngine.stop()
-                        inputNode.removeTap(onBus: 0)
+                if let error = error {
+                    self.logger.error("Recognition task error: \(error.localizedDescription)")
+                    // Handle specific error cases
+                    let nsError = error as NSError
+                    if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 203 {
+                        self.logger.warning("Received kAFAssistantErrorDomain code 203. Retrying...")
+                        // Retry logic for code 203
+                        Task { @MainActor in
+                            self.reset()
+                            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
+                            await self.startListening()
+                        }
+                        return
+                    }
 
+                    Task { @MainActor in
+                        self.errorMessage = "Recognition error: \(error.localizedDescription)"
+                        self.recognitionState = .error
+                    }
+                }
+
+                if isFinal {
+                    Task { @MainActor in
+                        self.logger.log("Final transcription received. Stopping audio engine and cleaning up.")
+                        self.audioEngine.stop()
+                        self.audioEngine.inputNode.removeTap(onBus: 0)
                         self.recognitionRequest = nil
                         self.recognitionTask = nil
-
                         self.isListening = false
-                        self.recognitionState = isFinal ? .finished : .error
-
-                        if let error = error {
-                            self.errorMessage = "Recognition error: \(error.localizedDescription)"
-                        }
+                        self.recognitionState = .finished
+                        self.logger.log("Recognition finished. Transcribed text: \"\(self.transcribedText)\"")
                     }
                 }
             }
+            logger.log("Recognition task started.")
 
             // Update state
             transcribedText = ""
             isListening = true
             recognitionState = .listening
             errorMessage = nil
+            logger.log("SpeechRecognizer is now listening.")
 
         } catch {
+            logger.error("Failed to start recognition: \(error.localizedDescription)")
             // Handle setup errors
             recognitionState = .error
             errorMessage = "Failed to start recognition: \(error.localizedDescription)"
+            // Ensure cleanup if something went wrong during setup
+            audioEngine.stop()
+            audioEngine.inputNode.removeTap(onBus: 0)
+            recognitionRequest = nil
+            recognitionTask = nil
+            isListening = false
         }
     }
 
     /// Stop listening and finalize transcription
     @MainActor
     func stopListening() {
+        logger.log("Stop listening requested.")
         // Stop audio engine and recognition
-        audioEngine.stop()
+        if audioEngine.isRunning {
+            audioEngine.stop()
+            logger.log("Audio engine stopped.")
+        }
         recognitionRequest?.endAudio()
+        logger.log("Recognition request endAudio called.")
 
         // Update state
         isListening = false
-        recognitionState = .finished
+        recognitionState = .finished // Or determine based on task if it's still running somehow
+        logger.log("SpeechRecognizer stopped listening. State: \(self.recognitionState.description)")
     }
 
     /// Reset the recognizer state
     @MainActor
     func reset() {
+        logger.log("Resetting SpeechRecognizer state.")
         // Cancel any ongoing tasks
         recognitionTask?.cancel()
         recognitionTask = nil
         recognitionRequest = nil
+        logger.log("Recognition task and request cancelled/nilled.")
 
         // Stop audio if running
         if audioEngine.isRunning {
             audioEngine.stop()
-            audioEngine.inputNode.removeTap(onBus: 0)
+            logger.log("Audio engine stopped.")
         }
+
+        audioEngine.inputNode.removeTap(onBus: 0)
+        logger.log("Input node tap removed (if one existed).")
 
         // Reset state
         isListening = false
         transcribedText = ""
         recognitionState = .idle
         errorMessage = nil
+        logger.log("SpeechRecognizer state reset to idle.")
     }
 
     // MARK: - SFSpeechRecognizerDelegate
 
     func speechRecognizer(_ speechRecognizer: SFSpeechRecognizer, availabilityDidChange available: Bool) {
+        logger.log("Speech recognizer availability changed: \(available ? "Available" : "Unavailable")")
         if !available {
             Task { @MainActor in
                 isListening = false
                 recognitionState = .error
                 errorMessage = "Speech recognition not available"
+                logger.error("Speech recognition became unavailable.")
             }
         }
     }
