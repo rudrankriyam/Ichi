@@ -383,7 +383,7 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/rudrankriyam/mlx-audio/";
 			requirement = {
-				branch = main;
+				branch = package-fix;
 				kind = branch;
 			};
 		};
