@@ -1,0 +1,52 @@
+name: iOS Build
+
+# This workflow runs whenever a PR is made to the main branch
+# It builds the Ichi app for the iOS simulator to check for build errors
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Build iOS App
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+          
+      - name: List Available Schemes
+        run: |
+          xcodebuild -project Ichi.xcodeproj -list
+          
+      - name: Install Dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies
+          
+      - name: Build for iOS Simulator
+        run: |
+          # Try building with the default scheme first
+          # The scheme name is typically the same as the project name
+          set +e
+          xcodebuild clean build -project Ichi.xcodeproj -scheme Ichi -destination "platform=iOS Simulator,name=iPhone 15 Pro,OS=latest"
+          BUILD_STATUS=$?
+          set -e
+          
+          # If the above build fails because the scheme doesn't exist, try with the main target
+          if [ $BUILD_STATUS -ne 0 ]; then
+            echo "Failed to build with 'Ichi' scheme, trying to determine the correct scheme..."
+            # Extract the first scheme from the list
+            SCHEME=$(xcodebuild -project Ichi.xcodeproj -list | grep -A 10 "Schemes:" | grep -v "Schemes:" | head -1 | xargs)
+            if [ ! -z "$SCHEME" ]; then
+              echo "Building with scheme: $SCHEME"
+              xcodebuild clean build -project Ichi.xcodeproj -scheme "$SCHEME" -destination "platform=iOS Simulator,name=iPhone 15 Pro,OS=latest"
+            else
+              echo "No schemes found, trying to build the default target"
+              xcodebuild clean build -project Ichi.xcodeproj -destination "platform=iOS Simulator,name=iPhone 15 Pro,OS=latest"
+            fi
+          fi
