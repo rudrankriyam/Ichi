@@ -1,0 +1,20 @@
+name: iOS Build
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Select Xcode version
+      run: sudo xcode-select -s /Applications/Xcode.app
+    
+    - name: Build for iOS Simulator
+      run: |
+        xcodebuild build -project Ichi.xcodeproj -scheme Ichi -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest'
