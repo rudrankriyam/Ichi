@@ -5,3 +5,9 @@
 ## Overview
 
 Ichi is an experimental project that explores the integration of conversational AI capabilities across iOS, macOS, and visionOS applications.
+
+## Features
+
+- Conversational AI powered by on-device LLMs
+- Speech recognition and text-to-speech capabilities
+- Onboarding process with download options for both Qwen model and Kokoro TTS voice model
