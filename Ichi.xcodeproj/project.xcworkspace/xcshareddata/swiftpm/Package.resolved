@@ -22,9 +22,9 @@
     {
       "identity" : "mlx-audio",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rudrankriyam/mlx-audio/",
+      "location" : "https://github.com/rryam/mlx-audio/",
       "state" : {
-        "branch" : "main",
+        "branch" : "package-fix",
         "revision" : "9ce0fd3cd8e68c923fd008c1d3991460ed87fe7f"
       }
     },
