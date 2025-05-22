@@ -33,7 +33,7 @@ jobs:
           # Try building with the default scheme first
           # The scheme name is typically the same as the project name
           set +e
-          xcodebuild clean build -project Ichi.xcodeproj -scheme Ichi -destination "platform=iOS Simulator,name=iPhone 15 Pro,OS=latest"
+          xcodebuild clean build -project Ichi.xcodeproj -scheme Ichi -destination "platform=iOS Simulator,name=Any iOS Simulator Device"
           BUILD_STATUS=$?
           set -e
           
@@ -44,9 +44,9 @@ jobs:
             SCHEME=$(xcodebuild -project Ichi.xcodeproj -list | grep -A 10 "Schemes:" | grep -v "Schemes:" | head -1 | xargs)
             if [ ! -z "$SCHEME" ]; then
               echo "Building with scheme: $SCHEME"
-              xcodebuild clean build -project Ichi.xcodeproj -scheme "$SCHEME" -destination "platform=iOS Simulator,name=iPhone 15 Pro,OS=latest"
+              xcodebuild clean build -project Ichi.xcodeproj -scheme "$SCHEME" -destination "platform=iOS Simulator,name=Any iOS Simulator Device"
             else
               echo "No schemes found, trying to build the default target"
-              xcodebuild clean build -project Ichi.xcodeproj -destination "platform=iOS Simulator,name=iPhone 15 Pro,OS=latest"
+              xcodebuild clean build -project Ichi.xcodeproj -destination "platform=iOS Simulator,name=Any iOS Simulator Device"
             fi
           fi
