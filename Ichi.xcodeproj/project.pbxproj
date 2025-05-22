@@ -381,7 +381,7 @@
 /* Begin XCRemoteSwiftPackageReference section */
 		0A8B32782DDDCEAB00006081 /* XCRemoteSwiftPackageReference "mlx-audio" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/rudrankriyam/mlx-audio/";
+			repositoryURL = "https://github.com/rryam/mlx-audio/";
 			requirement = {
 				branch = package-fix;
 				kind = branch;
