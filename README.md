@@ -5,3 +5,9 @@
 ## Overview
 
 Ichi is an experimental project that explores the integration of conversational AI capabilities across iOS, macOS, and visionOS applications.
+
+## Continuous Integration
+
+This project uses GitHub Actions for continuous integration:
+
+- **iOS Build Workflow**: Automatically builds the app for iOS simulator on every pull request to the main branch.
