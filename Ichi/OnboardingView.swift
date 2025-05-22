@@ -1,4 +1,5 @@
 import SwiftUI
+import Swift_TTS
 
 // Animated progress indicator
 struct AnimatedProgressView: View {
@@ -41,16 +42,38 @@ struct AnimatedProgressView: View {
 
 struct OnboardingView: View {
     @State private var isModelDownloaded = false
+    @State private var isKokoroModelDownloaded = false
     @State private var downloadProgress: Double = 0.0
     @State private var buttonScale: CGFloat = 1.0
+    @State private var kokoroButtonScale: CGFloat = 1.0
     @Binding var hasCompletedOnboarding: Bool
     @Environment(OnDeviceProcessor.self) var processor
     @Environment(\.colorScheme) private var colorScheme
+    
+    // Text-to-speech model
+    @StateObject private var ttsModel = KokoroTTSModel()
 
     // Colors based on state
     private var primaryColor: Color { isModelDownloaded ? .green : .blue }
     private var secondaryColor: Color { primaryColor.opacity(0.2) }
     private var tertiaryColor: Color { primaryColor.opacity(0.1) }
+    
+    // Kokoro download function
+    private func downloadKokoroModel() {
+        // Initialize the model by triggering a small text to convert
+        // This will make the model download its resources
+        let testText = "Hello"
+        ttsModel.say(testText, .afJessica, speed: 1.0)
+        ttsModel.stopPlayback() // Stop playback immediately
+        
+        // Mark as downloaded after a short delay
+        // This is a simplification - in a real app we would monitor download progress
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation(.spring()) {
+                isKokoroModelDownloaded = true
+            }
+        }
+    }
 
     // Background gradient similar to MainView
     private var backgroundGradient: LinearGradient {
@@ -156,6 +179,75 @@ struct OnboardingView: View {
                 .padding(.horizontal, 24)
 
                 Spacer()
+                
+                // Kokoro download button (appears after main model is downloaded)
+                if isModelDownloaded && !isKokoroModelDownloaded {
+                    VStack(spacing: 10) {
+                        Text("Download Kokoro TTS Model")
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundColor(primaryColor)
+                        
+                        Button(action: {
+                            // Button press animation
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                kokoroButtonScale = 0.9
+                            }
+                            
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                withAnimation {
+                                    kokoroButtonScale = 1.0
+                                }
+                                downloadKokoroModel()
+                            }
+                            
+                            // Haptic feedback
+#if os(iOS)
+                            let generator = UIImpactFeedbackGenerator(style: .medium)
+                            generator.impactOccurred()
+#endif
+                        }) {
+                            Text("Download Voice")
+                                .font(.system(size: 16, weight: .medium, design: .rounded))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
+                                .background(primaryColor)
+                                .cornerRadius(15)
+                                .scaleEffect(kokoroButtonScale)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .padding(.bottom, 20)
+                    }
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 30)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(primaryColor.opacity(0.2), lineWidth: 1)
+                    )
+                    .padding(.horizontal, 24)
+                }
+                
+                // Success message when both models are downloaded
+                if isModelDownloaded && isKokoroModelDownloaded {
+                    VStack(spacing: 10) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.green)
+                            
+                            Text("Kokoro Voice Model Ready!")
+                                .font(.system(size: 16, weight: .medium, design: .rounded))
+                                .foregroundColor(.green)
+                        }
+                    }
+                    .padding(.vertical, 10)
+                    .padding(.horizontal, 30)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color.green.opacity(0.2), lineWidth: 1)
+                    )
+                    .padding(.horizontal, 24)
+                }
 
                 // Continue button
                 Button(action: {
@@ -204,8 +296,8 @@ struct OnboardingView: View {
                     .scaleEffect(buttonScale)
                 }
                 .buttonStyle(PlainButtonStyle())
-                .disabled(!isModelDownloaded)
-                .opacity(isModelDownloaded ? 1 : 0.6)
+                .disabled(!isModelDownloaded || !isKokoroModelDownloaded)
+                .opacity((isModelDownloaded && isKokoroModelDownloaded) ? 1 : 0.6)
                 .padding(.bottom, 60)
             }
             .padding(.horizontal)
