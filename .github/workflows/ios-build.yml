@@ -16,7 +16,15 @@ jobs:
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_16.2.app
 
+      # Add Swift package resolution with timeout
+      - name: Resolve Swift packages
+        run: xcodebuild -resolvePackageDependencies -project Ichi.xcodeproj -scheme Ichi
+        timeout-minutes: 15
+
+      # Build with code signing disabled for CI and lower deployment targets
       - name: Build for iOS Simulator
         run: |
           xcodebuild build -project Ichi.xcodeproj -scheme Ichi \
-            -destination 'platform=iOS Simulator,OS=latest'
+            -destination 'platform=iOS Simulator,OS=latest' \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
+            IPHONEOS_DEPLOYMENT_TARGET=16.0 MACOSX_DEPLOYMENT_TARGET=13.0 XROS_DEPLOYMENT_TARGET=1.0
