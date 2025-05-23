@@ -1,5 +1,5 @@
 {
-  "originHash" : "7a8a2a120e7c485d5bfb1d9b22f373e3ca7c9132f161e06823d37cf59230d2ed",
+  "originHash" : "3567e23de4ca8a3ab67805e539dde2bfd72048aae0f99aec6ef1afdad973a39e",
   "pins" : [
     {
       "identity" : "gzipswift",
@@ -22,9 +22,9 @@
     {
       "identity" : "mlx-audio",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/rryam/mlx-audio/",
+      "location" : "https://github.com/rudrankriyam/mlx-audio.git",
       "state" : {
-        "branch" : "package-fix",
+        "branch" : "main",
         "revision" : "9ce0fd3cd8e68c923fd008c1d3991460ed87fe7f"
       }
     },
