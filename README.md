@@ -1,6 +1,8 @@
 # Ichi
 
-*Ichi (一)* means "one" in Japanese, representing this project to unify conversational AI across Apple platforms. One of the personal aim was to create a Japanese tutor to learn basics of the language for my trip to Shibuya, Tokyo, Japan. 
+*Ichi (一)* means "one" in Japanese, representing this project to unify conversational AI across Apple platforms. One of the personal aim was to create a Japanese tutor to learn basics of the language for my trip to Shibuya, Tokyo, Japan.
+
+![Ichi App](main_image.png)
 
 ## Support
 
@@ -18,6 +20,10 @@ Last September, using online providers for speech-to-speech was expensive, and I
 
 ## Features
 
-- Conversational AI powered by on-device LLMs
-- Speech recognition and text-to-speech capabilities
-- Onboarding process with download options for both Qwen model and Kokoro TTS voice model
+- **Privacy-First**: All processing happens on-device - no data leaves your device
+- **Conversational AI**: Powered by on-device LLMs (Qwen model)
+- **Speech Recognition**: Real-time speech-to-text conversion
+- **Text-to-Speech**: Natural voice synthesis using Kokoro TTS
+- **Cross-Platform**: Supports iOS, macOS, and visionOS
+- **Beautiful UI**: Modern SwiftUI interface with smooth animations
+- **Onboarding**: Guided setup with model downloads
