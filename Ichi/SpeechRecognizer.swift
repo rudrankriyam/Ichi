@@ -132,7 +132,7 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
 
   /// Configure audio session based on platform
   private func configureAudioSession() throws {
-    #if os(iOS)
+    #if os(iOS) || os(visionOS)
       logger.log("Configuring audio session for iOS.")
       let audioSession = AVAudioSession.sharedInstance()
       try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
