@@ -25,7 +25,7 @@
       "location" : "https://github.com/rudrankriyam/mlx-audio.git",
       "state" : {
         "branch" : "main",
-        "revision" : "9ce0fd3cd8e68c923fd008c1d3991460ed87fe7f"
+        "revision" : "0b6db7eb9f677ad4baa8c3f6789d5208fa952a00"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ml-explore/mlx-swift",
       "state" : {
-        "revision" : "d3f89b1f520ea9e52fd9de68c1dca708f040406a",
-        "version" : "0.25.3"
+        "revision" : "b94473af8c50010edba87a48bbd60c3d7f949852",
+        "version" : "0.25.4"
       }
     },
     {
