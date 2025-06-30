@@ -1,7 +1,5 @@
-import MLX
 import Speech
 import SwiftUI
-import Swift_TTS
 import os.log
 
 struct TypewriterView: View {
@@ -93,10 +91,11 @@ struct MainView: View {
   @State private var currentState: AppState = .idle
   @State private var buttonScale: CGFloat = 1.0
   @State private var transcriptText: String = ""
+  @State private var showingSettings = false
   @Environment(\.colorScheme) private var colorScheme
 
-  // Text-to-speech model
-  @StateObject private var ttsModel = KokoroTTSModel()
+  // Text-to-speech manager
+  @State private var ttsManager = TTSManager()
 
   // Logger for TTS functionality
   private let ttsLogger = Logger(
@@ -152,7 +151,7 @@ struct MainView: View {
 
       // Stop any ongoing TTS playback
       ttsLogger.info("Stopping TTS playback")
-      ttsModel.stopPlayback()
+      ttsManager.stopPlayback()
     case .error:
       // Reset to idle
       currentState = .idle
@@ -189,9 +188,8 @@ struct MainView: View {
   private func speakResponse(_ text: String) {
     ttsLogger.info(
       "Starting text-to-speech process for response of length: \(text.count) characters")
-    ttsLogger.debug("Calling ttsModel.say() with text input")
-    MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
-    ttsModel.say(text, .afJessica, speed: 1.0)
+    ttsLogger.debug("Calling ttsManager.say() with text input")
+    ttsManager.say(text, speed: 1.0)
   }
 
   var backgroundGradient: LinearGradient {
@@ -213,6 +211,21 @@ struct MainView: View {
         .ignoresSafeArea()
 
       VStack(spacing: 30) {
+        // Settings button in top right
+        HStack {
+          Spacer()
+          Button(action: {
+            showingSettings = true
+          }) {
+            Image(systemName: "gearshape.fill")
+              .font(.system(size: 20))
+              .foregroundColor(.secondary)
+              .padding(12)
+              .background(Circle().fill(.ultraThinMaterial))
+          }
+        }
+        .padding(.horizontal)
+        .padding(.top, 10)
         // Status area
         VStack(spacing: 16) {
           Image(systemName: currentState.SFSymbolName)
@@ -250,7 +263,6 @@ struct MainView: View {
           }
           .frame(height: 30)
         }
-        .padding(.top, 60)
 
         // Transcript area
         VStack(alignment: .leading, spacing: 12) {
@@ -346,13 +358,16 @@ struct MainView: View {
         transcriptText = newValue
       }
     }
-    .onChange(of: ttsModel.isAudioPlaying) { _, isPlaying in
+    .onChange(of: ttsManager.isAudioPlaying) { _, isPlaying in
       if !isPlaying && currentState == .playing {
         ttsLogger.info("TTS playback completed, transitioning to idle state")
         currentState = .idle
       } else if isPlaying {
         ttsLogger.info("TTS playback started")
       }
+    }
+    .sheet(isPresented: $showingSettings) {
+      SettingsView(ttsManager: ttsManager)
     }
   }
 }

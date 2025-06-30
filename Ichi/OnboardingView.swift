@@ -1,5 +1,4 @@
 import SwiftUI
-import Swift_TTS
 
 // Animated progress indicator
 struct AnimatedProgressView: View {
@@ -49,8 +48,8 @@ struct OnboardingView: View {
   @Environment(OnDeviceProcessor.self) var processor
   @Environment(\.colorScheme) private var colorScheme
 
-  // Text-to-speech model
-  @StateObject private var ttsModel = KokoroTTSModel()
+  // Text-to-speech manager
+  @State private var ttsManager = TTSManager()
 
   // Colors based on state
   private var primaryColor: Color { isModelDownloaded ? .green : .blue }
@@ -62,8 +61,10 @@ struct OnboardingView: View {
     // Initialize the model by triggering a small text to convert
     // This will make the model download its resources
     let testText = "Hello"
-    ttsModel.say(testText, .afJessica, speed: 1.0)
-    ttsModel.stopPlayback()  // Stop playback immediately
+    // Use Kokoro engine for initial download
+    ttsManager.currentEngine = .kokoro
+    ttsManager.say(testText, speed: 1.0)
+    ttsManager.stopPlayback()  // Stop playback immediately
 
     // Mark as downloaded after a short delay
     // This is a simplification - in a real app we would monitor download progress
