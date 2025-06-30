@@ -1,41 +1,15 @@
 import SwiftUI
 
-// Animated progress indicator
-struct AnimatedProgressView: View {
-  let progress: Double
+// Standard progress indicator
+struct StandardProgressView: View {
   let color: Color
-  @State private var rotation: Double = 0
 
   var body: some View {
-    ZStack {
-      // Track
-      Circle()
-        .stroke(color.opacity(0.2), lineWidth: 6)
-        .frame(width: 80, height: 80)
-
-      // Progress
-      Circle()
-        .trim(from: 0, to: CGFloat(min(progress, 1.0)))
-        .stroke(color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-        .frame(width: 80, height: 80)
-        .rotationEffect(.degrees(-90))
-        .animation(.easeOut, value: progress)
-
-      // Spinning dot
-      Circle()
-        .fill(color)
-        .frame(width: 12, height: 12)
-        .offset(y: -40)
-        .rotationEffect(.degrees(rotation))
-        .animation(
-          Animation.linear(duration: 2)
-            .repeatForever(autoreverses: false),
-          value: rotation
-        )
-        .onAppear {
-          rotation = 360
-        }
-    }
+    ProgressView()
+      .progressViewStyle(LinearProgressViewStyle())
+      .tint(color)
+      .scaleEffect(x: 1, y: 2)
+      .frame(width: 200)
   }
 }
 
@@ -149,7 +123,7 @@ struct OnboardingView: View {
                 .transition(.scale.combined(with: .opacity))
             } else {
               // Progress indicator
-              AnimatedProgressView(progress: 0.5, color: primaryColor)
+              StandardProgressView(color: primaryColor)
                 .transition(.opacity)
             }
           }
