@@ -1,4 +1,6 @@
 # Ichi
+[![Star History Chart](https://api.star-history.com/svg?repos=rudrankriyam/Ichi&type=Date)](https://star-history.com/#rudrankriyam/Ichi&Date)
+
 
 *Ichi (一)* means "one" in Japanese, representing this project to unify conversational AI across Apple platforms. One of the personal aim was to create a Japanese tutor to learn basics of the language for my trip to Shibuya, Tokyo, Japan.
 
