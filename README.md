@@ -1,5 +1,4 @@
 # Ichi
-[![Star History Chart](https://api.star-history.com/svg?repos=rudrankriyam/Ichi&type=Date)](https://star-history.com/#rudrankriyam/Ichi&Date)
 
 
 *Ichi (一)* means "one" in Japanese, representing this project to unify conversational AI across Apple platforms. One of the personal aim was to create a Japanese tutor to learn basics of the language for my trip to Shibuya, Tokyo, Japan.
@@ -29,3 +28,5 @@ Last September, using online providers for speech-to-speech was expensive, and I
 - **Cross-Platform**: Supports iOS, macOS, and visionOS
 - **Beautiful UI**: Modern SwiftUI interface with smooth animations
 - **Onboarding**: Guided setup with model downloads
+
+[![Star History Chart](https://api.star-history.com/svg?repos=rudrankriyam/Ichi&type=Date)](https://star-history.com/#rudrankriyam/Ichi&Date)
