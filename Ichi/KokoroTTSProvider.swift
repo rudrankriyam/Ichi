@@ -1,5 +1,5 @@
 import Foundation
-import Swift_TTS
+import MLXAudio
 import MLX
 import Combine
 import os.log

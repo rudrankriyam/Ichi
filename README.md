@@ -16,7 +16,7 @@ Last September, using online providers for speech-to-speech was expensive, and I
 - **Conversational AI**: Powered by on-device LLMs (Qwen model)
 - **Speech Recognition**: Real-time speech-to-text conversion
 - **Text-to-Speech**: Natural voice synthesis using Kokoro TTS
-- **Cross-Platform**: Supports iOS, macOS, and visionOS
+- **Apple Platform UI**: SwiftUI app shell, currently validated on macOS while the MLX audio stack evolves
 - **Beautiful UI**: Modern SwiftUI interface with smooth animations
 - **Onboarding**: Guided setup with model downloads
 

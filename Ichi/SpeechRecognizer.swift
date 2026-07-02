@@ -14,8 +14,9 @@ import os
   import AVFoundation
 #endif
 
+@MainActor
 @Observable
-final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
+final class SpeechRecognizer: NSObject, @preconcurrency SFSpeechRecognizerDelegate {
 
   // State properties
   var isListening = false
@@ -200,7 +201,6 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
   // MARK: - Speech Recognition Methods
 
   /// Start listening and transcribing speech
-  @MainActor
   func startListening() async {
     logger.log("Attempting to start listening.")
     // Check if already listening
@@ -375,7 +375,7 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
             if self.consecutiveErrors < 2 {
               Task { @MainActor in
                 self.reset()
-                try? await Task.sleep(nanoseconds: 1_000_000_000)  // 1 second delay
+                try? await Task.sleep(for: .seconds(1))
                 await self.startListening()
               }
               return
@@ -430,7 +430,6 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
   }
 
   /// Stop listening and finalize transcription
-  @MainActor
   func stopListening() {
     logger.log("Stop listening requested.")
     // Stop audio engine and recognition
@@ -448,7 +447,6 @@ final class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
   }
 
   /// Reset the recognizer state
-  @MainActor
   func reset() {
     logger.log("Resetting SpeechRecognizer state.")
     // Cancel any ongoing tasks

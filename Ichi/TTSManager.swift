@@ -2,8 +2,9 @@ import SwiftUI
 import Combine
 import os.log
 
+@MainActor
 @Observable
-class TTSManager {
+final class TTSManager {
     var currentEngine: TTSEngine = .kokoro {
         didSet {
             if currentEngine != oldValue {
