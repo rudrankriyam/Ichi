@@ -1,13 +1,12 @@
-name: iOS Build
-# This workflow runs whenever a PR is made to the main branch
-# It builds the Ichi app for the iOS simulator to check for build errors
+name: App Build
+
 on:
   pull_request:
     branches: [ main ]
 
 jobs:
   build:
-    name: Build iOS App
+    name: Build macOS App
     runs-on: macos-latest
     
     steps:
@@ -30,56 +29,17 @@ jobs:
       - name: Install Dependencies
         run: |
           xcodebuild -resolvePackageDependencies -project Ichi.xcodeproj
-          
-      - name: Build for iOS Simulator
+
+      - name: Run Conversation Tests
+        run: swift test
+
+      - name: Build for macOS
         run: |
-          # Use the generic iOS Simulator destination that's shown as available
-          set +e
           xcodebuild clean build \
             -project Ichi.xcodeproj \
             -scheme Ichi \
-            -destination "generic/platform=iOS Simulator" \
+            -destination "platform=macOS,arch=arm64" \
             -configuration Debug \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
-          BUILD_STATUS=$?
-          set -e
-          
-          # If the above build fails, try alternative approaches
-          if [ $BUILD_STATUS -ne 0 ]; then
-            echo "Failed to build with generic iOS Simulator destination, trying alternative..."
-            
-            # Try with explicit simulator destination
-            set +e
-            xcodebuild clean build \
-              -project Ichi.xcodeproj \
-              -scheme Ichi \
-              -destination "platform=iOS Simulator,id=dvtdevice-DVTiOSDeviceSimulatorPlaceholder-iphonesimulator:placeholder" \
-              -configuration Debug \
-              CODE_SIGN_IDENTITY="" \
-              CODE_SIGNING_REQUIRED=NO \
-              CODE_SIGNING_ALLOWED=NO
-            BUILD_STATUS=$?
-            set -e
-            
-            # If still failing, try to find and use the first available scheme
-            if [ $BUILD_STATUS -ne 0 ]; then
-              echo "Still failing, trying to determine the correct scheme..."
-              SCHEME=$(xcodebuild -project Ichi.xcodeproj -list | grep -A 10 "Schemes:" | grep -v "Schemes:" | head -1 | xargs)
-              if [ ! -z "$SCHEME" ]; then
-                echo "Building with scheme: $SCHEME"
-                xcodebuild clean build \
-                  -project Ichi.xcodeproj \
-                  -scheme "$SCHEME" \
-                  -destination "generic/platform=iOS Simulator" \
-                  -configuration Debug \
-                  CODE_SIGN_IDENTITY="" \
-                  CODE_SIGNING_REQUIRED=NO \
-                  CODE_SIGNING_ALLOWED=NO
-              else
-                echo "No schemes found, build failed"
-                exit 1
-              fi
-            fi
-          fi
