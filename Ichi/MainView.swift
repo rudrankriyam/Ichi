@@ -1,6 +1,4 @@
-import Speech
 import SwiftUI
-import os.log
 
 struct TypewriterView: View {
   let state: AppState
@@ -88,108 +86,22 @@ struct SpeakingView: View {
 }
 
 struct MainView: View {
-  @State private var currentState: AppState = .idle
+  @State private var conversation: VoiceConversationController
+  @State private var ttsManager: TTSManager
   @State private var buttonScale: CGFloat = 1.0
-  @State private var transcriptText: String = ""
   @State private var showingSettings = false
   @Environment(\.colorScheme) private var colorScheme
 
-  // Text-to-speech manager
-  @State private var ttsManager = TTSManager()
-
-  // Logger for TTS functionality
-  private let ttsLogger = Logger(
-    subsystem: Bundle.main.bundleIdentifier ?? "com.rudrankriyam.ichi", category: "TextToSpeech")
-
-  // Speech recognizer and processor
-  @State private var speechRecognizer = SpeechRecognizer()
-  @State private var onDeviceProcessor = OnDeviceProcessor()
-
-  // Handle speech recognition state transitions
-  private func handleSpeechRecognition() async {
-    switch currentState {
-    case .idle:
-      // Start listening
-      currentState = .listening
-      await speechRecognizer.startListening()
-
-    case .listening:
-      // Stop listening and start transcribing
-      currentState = .transcribing
-      Task { @MainActor in
-        speechRecognizer.stopListening()
-        transcriptText = speechRecognizer.transcribedText
-
-        // Move to processing after a short delay
-        currentState = .processing
-        await onDeviceProcessor.processTranscribedText(speechRecognizer.transcribedText)
-
-        currentState = .playing
-        // Speak the response using Kokoro TTS
-        ttsLogger.info("Starting text-to-speech for generated response")
-        speakResponse(onDeviceProcessor.generatedResponse)
-      }
-
-    case .transcribing:
-      currentState = .processing
-      await onDeviceProcessor.processTranscribedText(speechRecognizer.transcribedText)
-    case .processing:
-      // Skip to playing
-      ttsLogger.info("Transitioning from processing to playing state")
-      transcriptText = onDeviceProcessor.generatedResponse
-      currentState = .playing
-      // Speak the response using Kokoro TTS
-      ttsLogger.info("Starting text-to-speech for generated response")
-      speakResponse(onDeviceProcessor.generatedResponse)
-
-    case .playing:
-      // Reset to idle
-      ttsLogger.info("Transitioning from playing to idle state")
-      currentState = .idle
-      speechRecognizer.reset()
-      onDeviceProcessor.cancelProcessing()
-
-      // Stop any ongoing TTS playback
-      ttsLogger.info("Stopping TTS playback")
-      ttsManager.stopPlayback()
-    case .error:
-      // Reset to idle
-      currentState = .idle
-      speechRecognizer.reset()
-      onDeviceProcessor.cancelProcessing()
-    }
-
-    updateTranscriptText()
-  }
-
-  // Update transcript text based on speech recognizer state
-  private func updateTranscriptText() {
-    switch currentState {
-    case .idle:
-      transcriptText = "Tap the button to start a conversation"
-    case .listening:
-      if !speechRecognizer.transcribedText.isEmpty {
-        transcriptText = speechRecognizer.transcribedText
-      } else {
-        transcriptText = "Listening to your voice..."
-      }
-    case .transcribing:
-      transcriptText = "Converting your speech to text..."
-    case .processing:
-      transcriptText = "Thinking about your request..."
-    case .playing:
-      transcriptText = "Here's what I found for you..."
-    case .error:
-      transcriptText = "An error occurred, please try again."
-    }
-  }
-
-  // Function to speak the response using Kokoro TTS
-  private func speakResponse(_ text: String) {
-    ttsLogger.info(
-      "Starting text-to-speech process for response of length: \(text.count) characters")
-    ttsLogger.debug("Calling ttsManager.say() with text input")
-    ttsManager.say(text, speed: 1.0)
+  init(processor: OnDeviceProcessor) {
+    let ttsManager = TTSManager()
+    _ttsManager = State(initialValue: ttsManager)
+    _conversation = State(
+      initialValue: VoiceConversationController(
+        speechRecognizer: SpeechRecognizer(),
+        responder: processor,
+        speechOutput: ttsManager
+      )
+    )
   }
 
   var backgroundGradient: LinearGradient {
@@ -197,7 +109,7 @@ struct MainView: View {
       gradient: Gradient(colors: [
         colorScheme == .dark ? Color.black : Color.white,
         colorScheme == .dark ? Color.black.opacity(0.8) : Color.white.opacity(0.8),
-        currentState.tertiaryColor,
+        conversation.state.tertiaryColor,
       ]),
       startPoint: .top,
       endPoint: .bottom
@@ -228,17 +140,17 @@ struct MainView: View {
         .padding(.top, 10)
         // Status area
         VStack(spacing: 16) {
-          Image(systemName: currentState.SFSymbolName)
+          Image(systemName: conversation.state.SFSymbolName)
             .font(.system(size: 36, weight: .light))
-            .foregroundColor(currentState.color)
+            .foregroundColor(conversation.state.color)
             .frame(width: 80, height: 80)
             .background(
               ZStack {
                 Circle()
-                  .fill(currentState.secondaryColor)
-                if currentState != .idle {
+                  .fill(conversation.state.secondaryColor)
+                if conversation.state != .idle {
                   PulsatingCircle(
-                    color: currentState.tertiaryColor,
+                    color: conversation.state.tertiaryColor,
                     startRadius: 80,
                     endRadius: 120
                   )
@@ -247,19 +159,19 @@ struct MainView: View {
             )
             .overlay(
               Circle()
-                .stroke(currentState.color.opacity(0.3), lineWidth: 1)
+                .stroke(conversation.state.color.opacity(0.3), lineWidth: 1)
             )
 
-          Text(currentState.description)
+          Text(conversation.state.description)
             .font(.system(size: 20, weight: .medium, design: .rounded))
-            .foregroundColor(currentState.color)
+            .foregroundColor(conversation.state.color)
 
           // State-specific animation views
           Group {
-            WaveformView(state: currentState)
-            TypewriterView(state: currentState)
-            ProcessingView(state: currentState)
-            SpeakingView(state: currentState)
+            WaveformView(state: conversation.state)
+            TypewriterView(state: conversation.state)
+            ProcessingView(state: conversation.state)
+            SpeakingView(state: conversation.state)
           }
           .frame(height: 30)
         }
@@ -271,16 +183,16 @@ struct MainView: View {
             .foregroundColor(.secondary)
             .padding(.leading, 4)
 
-          Text(transcriptText)
+          Text(conversation.transcriptText)
             .font(.system(size: 16, weight: .regular, design: .rounded))
             .foregroundColor(.primary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .overlay(
               RoundedRectangle(cornerRadius: 12)
-                .stroke(currentState.color.opacity(0.2), lineWidth: 1)
+                .stroke(conversation.state.color.opacity(0.2), lineWidth: 1)
             )
-            .animation(.easeInOut, value: transcriptText)
+            .animation(.easeInOut, value: conversation.transcriptText)
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 24)
@@ -307,7 +219,7 @@ struct MainView: View {
           }
 
           Task {
-            await handleSpeechRecognition()
+            await conversation.handlePrimaryAction()
           }
         }) {
           ZStack {
@@ -316,20 +228,20 @@ struct MainView: View {
               .fill(.ultraThinMaterial)
               .overlay(
                 Circle()
-                  .stroke(currentState.color, lineWidth: 2)
+                  .stroke(conversation.state.color, lineWidth: 2)
               )
-              .shadow(color: currentState.color.opacity(0.3), radius: 10, x: 0, y: 5)
+              .shadow(color: conversation.state.color.opacity(0.3), radius: 10, x: 0, y: 5)
               .frame(width: 80, height: 80)
 
             // Button icon
-            Image(systemName: currentState == .idle ? "mic.fill" : "stop.fill")
+            Image(systemName: conversation.state == .idle ? "mic.fill" : "stop.fill")
               .font(.system(size: 30, weight: .medium))
-              .foregroundColor(currentState.color)
+              .foregroundColor(conversation.state.color)
 
             // Pulsating effect when active
-            if currentState != .idle {
+            if conversation.state != .idle {
               Circle()
-                .stroke(currentState.color.opacity(0.5), lineWidth: 2)
+                .stroke(conversation.state.color.opacity(0.5), lineWidth: 2)
                 .frame(width: 90, height: 90)
                 .scaleEffect(buttonScale)
             }
@@ -342,28 +254,8 @@ struct MainView: View {
       .padding(.horizontal)
     }
     .onAppear {
-      updateTranscriptText()
-
       Task {
-        _ = await speechRecognizer.requestAuthorization()
-      }
-    }
-    .onChange(of: speechRecognizer.transcribedText) { _, newValue in
-      if currentState == .listening && !newValue.isEmpty {
-        transcriptText = newValue
-      }
-    }
-    .onChange(of: onDeviceProcessor.generatedResponse) { _, newValue in
-      if currentState == .processing && !newValue.isEmpty {
-        transcriptText = newValue
-      }
-    }
-    .onChange(of: ttsManager.isAudioPlaying) { _, isPlaying in
-      if !isPlaying && currentState == .playing {
-        ttsLogger.info("TTS playback completed, transitioning to idle state")
-        currentState = .idle
-      } else if isPlaying {
-        ttsLogger.info("TTS playback started")
+        await conversation.requestSpeechAuthorization()
       }
     }
     .sheet(isPresented: $showingSettings) {

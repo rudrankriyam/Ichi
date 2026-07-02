@@ -11,6 +11,7 @@ import MLXRandom
 import SwiftUI
 
 /// A class that handles on-device processing for conversational AI
+@MainActor
 @Observable
 final class OnDeviceProcessor {
   // MARK: - Properties
@@ -22,8 +23,11 @@ final class OnDeviceProcessor {
   var modelInfo = ""
 
   // Configuration properties
-  let modelConfiguration = LLMRegistry.qwen3_1_7b_4bit
-  let generateParameters = GenerateParameters(maxTokens: 240, temperature: 0.6)
+  let configuration: OnDeviceProcessorConfiguration
+
+  init(configuration: OnDeviceProcessorConfiguration = .ichiDefault) {
+    self.configuration = configuration
+  }
 
   // MARK: - Model Loading
 
@@ -35,7 +39,6 @@ final class OnDeviceProcessor {
   private var loadState = LoadState.idle
 
   /// Loads the model if not already loaded
-  @MainActor
   func loadModel() async throws -> ModelContainer {
     switch loadState {
     case .idle:
@@ -43,11 +46,11 @@ final class OnDeviceProcessor {
       MLX.GPU.set(cacheLimit: 20 * 1024 * 1024)
 
       let modelContainer = try await LLMModelFactory.shared.loadContainer(
-        configuration: modelConfiguration
-      ) { [modelConfiguration] progress in
+        configuration: configuration.model
+      ) { [configuration] progress in
         Task { @MainActor in
           self.modelInfo =
-            "Downloading \(modelConfiguration.name): \(Int(progress.fractionCompleted * 100))%"
+            "Downloading \(configuration.model.name): \(Int(progress.fractionCompleted * 100))%"
         }
       }
 
@@ -62,7 +65,6 @@ final class OnDeviceProcessor {
   // MARK: - Processing Methods
 
   /// Process the transcribed text and generate a response
-  @MainActor
   func processTranscribedText(_ text: String) async {
     guard !isProcessing else { return }
 
@@ -75,15 +77,14 @@ final class OnDeviceProcessor {
   }
 
   /// Generate a response for the given input text
-  @MainActor
   private func generateResponse(for text: String) async {
     let chat: [Chat.Message] = [
-      .system("You are a helpful assistant. Keep your answers short."),
+      .system(configuration.systemPrompt),
       .user(text),
     ]
 
     let userInput = UserInput(
-      chat: chat, additionalContext: ["enable_thinking": false])
+      chat: chat, additionalContext: ["enable_thinking": configuration.enableThinking])
 
     do {
       let modelContainer = try await loadModel()
@@ -94,7 +95,7 @@ final class OnDeviceProcessor {
       try await modelContainer.perform { (context: ModelContext) -> Void in
         let lmInput = try await context.processor.prepare(input: userInput)
         let stream = try MLXLMCommon.generate(
-          input: lmInput, parameters: generateParameters, context: context)
+          input: lmInput, parameters: configuration.generateParameters, context: context)
 
         // Generate and output in batches
         for await output in stream {
@@ -111,8 +112,21 @@ final class OnDeviceProcessor {
   }
 
   /// Cancel the current processing task
-  @MainActor
   func cancelProcessing() {
     isProcessing = false
   }
+}
+
+struct OnDeviceProcessorConfiguration: Sendable {
+  let model: ModelConfiguration
+  let systemPrompt: String
+  let generateParameters: GenerateParameters
+  let enableThinking: Bool
+
+  static let ichiDefault = OnDeviceProcessorConfiguration(
+    model: LLMRegistry.qwen3_1_7b_4bit,
+    systemPrompt: "You are a helpful assistant. Keep your answers short.",
+    generateParameters: GenerateParameters(maxTokens: 240, temperature: 0.6),
+    enableThinking: false
+  )
 }

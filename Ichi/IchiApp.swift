@@ -15,7 +15,7 @@ struct IchiApp: App {
     var body: some Scene {
         WindowGroup {
             if hasCompletedOnboarding {
-                MainView()
+                MainView(processor: processor)
                     .environment(processor)
             } else {
                 OnboardingView(hasCompletedOnboarding: $hasCompletedOnboarding)

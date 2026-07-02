@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0A969CB02DDDD1C400A3DF34 /* Swift-TTS in Frameworks */ = {isa = PBXBuildFile; productRef = 0A969CAF2DDDD1C400A3DF34 /* Swift-TTS */; };
+		0A969CB02DDDD1C400A3DF34 /* MLXAudio in Frameworks */ = {isa = PBXBuildFile; productRef = 0A969CAF2DDDD1C400A3DF34 /* MLXAudio */; };
 		0A969CB32DDDD25A00A3DF34 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 0A969CB22DDDD25A00A3DF34 /* MLXLLM */; };
 		0A969CB52DDDD25A00A3DF34 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 0A969CB42DDDD25A00A3DF34 /* MLXLMCommon */; };
 /* End PBXBuildFile section */
@@ -31,7 +31,7 @@
 			files = (
 				0A969CB32DDDD25A00A3DF34 /* MLXLLM in Frameworks */,
 				0A969CB52DDDD25A00A3DF34 /* MLXLMCommon in Frameworks */,
-				0A969CB02DDDD1C400A3DF34 /* Swift-TTS in Frameworks */,
+				0A969CB02DDDD1C400A3DF34 /* MLXAudio in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -82,7 +82,7 @@
 			);
 			name = Ichi;
 			packageProductDependencies = (
-				0A969CAF2DDDD1C400A3DF34 /* Swift-TTS */,
+				0A969CAF2DDDD1C400A3DF34 /* MLXAudio */,
 				0A969CB22DDDD25A00A3DF34 /* MLXLLM */,
 				0A969CB42DDDD25A00A3DF34 /* MLXLMCommon */,
 			);
@@ -396,10 +396,10 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		0A969CAF2DDDD1C400A3DF34 /* Swift-TTS */ = {
+		0A969CAF2DDDD1C400A3DF34 /* MLXAudio */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 0A8B32782DDDCEAB00006081 /* XCRemoteSwiftPackageReference "mlx-audio" */;
-			productName = "Swift-TTS";
+			productName = MLXAudio;
 		};
 		0A969CB22DDDD25A00A3DF34 /* MLXLLM */ = {
 			isa = XCSwiftPackageProductDependency;
