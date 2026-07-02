@@ -112,6 +112,7 @@ final class VoiceConversationController {
   }
 
   private func speak(_ text: String, runID: UUID) {
+    stopMirroringDependencyText()
     state = .playing
     transcriptText = text
     logger.info("Starting text-to-speech for generated response")
@@ -173,6 +174,7 @@ final class VoiceConversationController {
 
     playbackTask = Task { @MainActor [weak self] in
       var playbackStarted = false
+      var hasCheckedPlayback = false
 
       while !Task.isCancelled {
         guard let self, self.activeRunID == runID, self.state == .playing else {
@@ -181,12 +183,13 @@ final class VoiceConversationController {
 
         if self.speechOutput.isAudioPlaying {
           playbackStarted = true
-        } else if playbackStarted {
+        } else if playbackStarted || hasCheckedPlayback {
           self.state = .idle
           self.updateTranscriptText()
           return
         }
 
+        hasCheckedPlayback = true
         try? await Task.sleep(for: .milliseconds(150))
       }
     }

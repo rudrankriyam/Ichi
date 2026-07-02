@@ -39,6 +39,35 @@ struct VoiceConversationControllerTests {
     #expect(testRig.controller.transcriptText == "A small voice agent builder.")
   }
 
+  @Test("keeps the generated response visible while playing")
+  func generatedResponseStaysVisibleWhilePlaying() async {
+    let testRig = makeController()
+    testRig.recognizer.transcribedText = "What should stay on screen?"
+    testRig.responder.response = "The generated response should stay visible."
+
+    await testRig.controller.handlePrimaryAction()
+    await testRig.controller.handlePrimaryAction()
+    try? await Task.sleep(for: .milliseconds(180))
+
+    #expect(testRig.controller.state == .playing)
+    #expect(testRig.controller.transcriptText == "The generated response should stay visible.")
+  }
+
+  @Test("short playback returns to idle")
+  func shortPlaybackReturnsToIdle() async {
+    let testRig = makeController()
+    testRig.recognizer.transcribedText = "Say something quick"
+    testRig.responder.response = "Done."
+    testRig.speaker.startsPlayingOnSay = false
+
+    await testRig.controller.handlePrimaryAction()
+    await testRig.controller.handlePrimaryAction()
+    try? await Task.sleep(for: .milliseconds(180))
+
+    #expect(testRig.controller.state == .idle)
+    #expect(testRig.controller.transcriptText == "Tap the button to start a conversation")
+  }
+
   @Test("reset during processing prevents stale speech")
   func resetDuringProcessingPreventsStaleSpeech() async {
     let testRig = makeController()
@@ -166,11 +195,12 @@ private final class FakeResponder: ConversationalResponding {
 private final class FakeSpeechOutput: SpeechOutputting {
   var isAudioPlaying = false
   var spokenTexts: [String] = []
+  var startsPlayingOnSay = true
   var stopCallCount = 0
 
   func say(_ text: String, voice: String?, speed: Float) {
     spokenTexts.append(text)
-    isAudioPlaying = true
+    isAudioPlaying = startsPlayingOnSay
   }
 
   func stopPlayback() {
