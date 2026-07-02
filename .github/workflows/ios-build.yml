@@ -17,6 +17,9 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+
+      - name: Install Metal Toolchain
+        run: xcodebuild -downloadComponent MetalToolchain
           
       - name: List Available Schemes and Destinations
         run: |
