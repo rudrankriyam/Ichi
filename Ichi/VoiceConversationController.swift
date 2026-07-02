@@ -11,6 +11,8 @@ final class VoiceConversationController {
   @ObservationIgnored private let speechRecognizer: any SpeechRecognizing
   @ObservationIgnored private let responder: any ConversationalResponding
   @ObservationIgnored private let speechOutput: any SpeechOutputting
+  @ObservationIgnored private let playbackPollInterval: Duration
+  @ObservationIgnored private let playbackStartTimeout: Duration
   @ObservationIgnored private let logger = Logger(
     subsystem: Bundle.main.bundleIdentifier ?? "com.rudrankriyam.ichi",
     category: "VoiceConversation"
@@ -23,11 +25,15 @@ final class VoiceConversationController {
   init(
     speechRecognizer: any SpeechRecognizing,
     responder: any ConversationalResponding,
-    speechOutput: any SpeechOutputting
+    speechOutput: any SpeechOutputting,
+    playbackPollInterval: Duration = .milliseconds(150),
+    playbackStartTimeout: Duration = .seconds(10)
   ) {
     self.speechRecognizer = speechRecognizer
     self.responder = responder
     self.speechOutput = speechOutput
+    self.playbackPollInterval = playbackPollInterval
+    self.playbackStartTimeout = playbackStartTimeout
     updateTranscriptText()
   }
 
@@ -103,6 +109,7 @@ final class VoiceConversationController {
 
     let response = responder.generatedResponse.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !response.isEmpty else {
+      stopMirroringDependencyText()
       state = .error
       transcriptText = "No response was generated. Please try again."
       return
@@ -174,7 +181,8 @@ final class VoiceConversationController {
 
     playbackTask = Task { @MainActor [weak self] in
       var playbackStarted = false
-      var hasCheckedPlayback = false
+      let clock = ContinuousClock()
+      let startDeadline = clock.now + (self?.playbackStartTimeout ?? .seconds(10))
 
       while !Task.isCancelled {
         guard let self, self.activeRunID == runID, self.state == .playing else {
@@ -183,14 +191,13 @@ final class VoiceConversationController {
 
         if self.speechOutput.isAudioPlaying {
           playbackStarted = true
-        } else if playbackStarted || hasCheckedPlayback {
+        } else if playbackStarted || clock.now >= startDeadline {
           self.state = .idle
           self.updateTranscriptText()
           return
         }
 
-        hasCheckedPlayback = true
-        try? await Task.sleep(for: .milliseconds(150))
+        try? await Task.sleep(for: self.playbackPollInterval)
       }
     }
   }

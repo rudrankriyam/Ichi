@@ -53,9 +53,31 @@ struct VoiceConversationControllerTests {
     #expect(testRig.controller.transcriptText == "The generated response should stay visible.")
   }
 
-  @Test("short playback returns to idle")
-  func shortPlaybackReturnsToIdle() async {
-    let testRig = makeController()
+  @Test("delayed playback start keeps playing state")
+  func delayedPlaybackStartKeepsPlayingState() async {
+    let testRig = makeController(playbackPollInterval: .milliseconds(30), playbackStartTimeout: .milliseconds(300))
+    testRig.recognizer.transcribedText = "Say something after synthesizing"
+    testRig.responder.response = "Starting soon."
+    testRig.speaker.startsPlayingOnSay = false
+    testRig.speaker.startPlaybackAfter = .milliseconds(120)
+
+    await testRig.controller.handlePrimaryAction()
+    await testRig.controller.handlePrimaryAction()
+    try? await Task.sleep(for: .milliseconds(90))
+
+    #expect(testRig.controller.state == .playing)
+    #expect(testRig.controller.transcriptText == "Starting soon.")
+
+    try? await Task.sleep(for: .milliseconds(80))
+    testRig.speaker.isAudioPlaying = false
+    try? await Task.sleep(for: .milliseconds(60))
+
+    #expect(testRig.controller.state == .idle)
+  }
+
+  @Test("playback that never starts returns to idle")
+  func playbackThatNeverStartsReturnsToIdle() async {
+    let testRig = makeController(playbackPollInterval: .milliseconds(30), playbackStartTimeout: .milliseconds(120))
     testRig.recognizer.transcribedText = "Say something quick"
     testRig.responder.response = "Done."
     testRig.speaker.startsPlayingOnSay = false
@@ -66,6 +88,20 @@ struct VoiceConversationControllerTests {
 
     #expect(testRig.controller.state == .idle)
     #expect(testRig.controller.transcriptText == "Tap the button to start a conversation")
+  }
+
+  @Test("empty generated response keeps its error message")
+  func emptyGeneratedResponseKeepsErrorMessage() async {
+    let testRig = makeController()
+    testRig.recognizer.transcribedText = "Say nothing"
+    testRig.responder.response = ""
+
+    await testRig.controller.handlePrimaryAction()
+    await testRig.controller.handlePrimaryAction()
+    try? await Task.sleep(for: .milliseconds(180))
+
+    #expect(testRig.controller.state == .error)
+    #expect(testRig.controller.transcriptText == "No response was generated. Please try again.")
   }
 
   @Test("reset during processing prevents stale speech")
@@ -92,14 +128,19 @@ struct VoiceConversationControllerTests {
     #expect(testRig.speaker.spokenTexts.isEmpty)
   }
 
-  private func makeController() -> TestRig {
+  private func makeController(
+    playbackPollInterval: Duration = .milliseconds(150),
+    playbackStartTimeout: Duration = .seconds(10)
+  ) -> TestRig {
     let recognizer = FakeSpeechRecognizer()
     let responder = FakeResponder()
     let speaker = FakeSpeechOutput()
     let controller = VoiceConversationController(
       speechRecognizer: recognizer,
       responder: responder,
-      speechOutput: speaker
+      speechOutput: speaker,
+      playbackPollInterval: playbackPollInterval,
+      playbackStartTimeout: playbackStartTimeout
     )
 
     return TestRig(
@@ -196,11 +237,19 @@ private final class FakeSpeechOutput: SpeechOutputting {
   var isAudioPlaying = false
   var spokenTexts: [String] = []
   var startsPlayingOnSay = true
+  var startPlaybackAfter: Duration?
   var stopCallCount = 0
 
   func say(_ text: String, voice: String?, speed: Float) {
     spokenTexts.append(text)
     isAudioPlaying = startsPlayingOnSay
+
+    if let startPlaybackAfter {
+      Task { @MainActor in
+        try? await Task.sleep(for: startPlaybackAfter)
+        isAudioPlaying = true
+      }
+    }
   }
 
   func stopPlayback() {
