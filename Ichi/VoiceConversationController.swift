@@ -54,7 +54,10 @@ final class VoiceConversationController {
     case .listening:
       await finishListeningAndRespond()
 
-    case .transcribing, .processing, .playing, .error:
+    case .processing:
+      stopProcessingAndSpeakGeneratedResponse()
+
+    case .transcribing, .playing, .error:
       resetConversation()
     }
   }
@@ -125,6 +128,19 @@ final class VoiceConversationController {
     logger.info("Starting text-to-speech for generated response")
     speechOutput.say(text, voice: nil, speed: 1.0)
     startPlaybackMonitor(runID: runID)
+  }
+
+  private func stopProcessingAndSpeakGeneratedResponse() {
+    let response = responder.generatedResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !response.isEmpty else {
+      resetConversation()
+      return
+    }
+
+    beginNewRun()
+    let runID = activeRunID
+    responder.cancelProcessing()
+    speak(response, runID: runID)
   }
 
   private func resetConversation(message: String? = nil) {

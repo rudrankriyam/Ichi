@@ -128,6 +128,32 @@ struct VoiceConversationControllerTests {
     #expect(testRig.speaker.spokenTexts.isEmpty)
   }
 
+  @Test("primary action during processing speaks partial response")
+  func primaryActionDuringProcessingSpeaksPartialResponse() async {
+    let testRig = makeController()
+    testRig.recognizer.transcribedText = "Tell me something slow"
+    testRig.responder.response = "The final response should not replace the partial."
+    testRig.responder.shouldWaitForRelease = true
+
+    await testRig.controller.handlePrimaryAction()
+
+    let processingTask = Task {
+      await testRig.controller.handlePrimaryAction()
+    }
+
+    await testRig.responder.waitUntilSuspended()
+    testRig.responder.generatedResponse = "Here is the partial response."
+
+    await testRig.controller.handlePrimaryAction()
+    testRig.responder.release()
+    await processingTask.value
+
+    #expect(testRig.controller.state == .playing)
+    #expect(testRig.responder.cancelCallCount == 1)
+    #expect(testRig.speaker.spokenTexts == ["Here is the partial response."])
+    #expect(testRig.controller.transcriptText == "Here is the partial response.")
+  }
+
   private func makeController(
     playbackPollInterval: Duration = .milliseconds(150),
     playbackStartTimeout: Duration = .seconds(10)
