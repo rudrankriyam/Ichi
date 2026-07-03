@@ -33,6 +33,7 @@ let package = Package(
       sources: [
         "AppState.swift",
         "ConversationInterfaces.swift",
+        "SpeechRecognitionRequestFactory.swift",
         "VoiceConversationController.swift",
       ]
     ),
