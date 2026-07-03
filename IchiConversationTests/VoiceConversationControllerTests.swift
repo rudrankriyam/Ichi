@@ -104,6 +104,21 @@ struct VoiceConversationControllerTests {
     #expect(testRig.controller.transcriptText == "No response was generated. Please try again.")
   }
 
+  @Test("error result is not spoken")
+  func errorResultIsNotSpoken() async {
+    let testRig = makeController()
+    testRig.recognizer.transcribedText = "Trigger a failure"
+    testRig.responder.response = "Failed: modelNotFound(underlying error)"
+    testRig.responder.errorToReport = "modelNotFound(underlying error)"
+
+    await testRig.controller.handlePrimaryAction()
+    await testRig.controller.handlePrimaryAction()
+
+    #expect(testRig.speaker.spokenTexts.isEmpty)
+    #expect(testRig.controller.state == .error)
+    #expect(testRig.controller.transcriptText == "Response generation failed. Please try again.")
+  }
+
   @Test("reset during processing prevents stale speech")
   func resetDuringProcessingPreventsStaleSpeech() async {
     let testRig = makeController()
@@ -216,7 +231,9 @@ private final class FakeSpeechRecognizer: SpeechRecognizing {
 @MainActor
 private final class FakeResponder: ConversationalResponding {
   var generatedResponse = ""
+  var processingError: String?
   var response = "Response"
+  var errorToReport: String?
   var processedText: String?
   var cancelCallCount = 0
   var shouldWaitForRelease = false
@@ -226,6 +243,7 @@ private final class FakeResponder: ConversationalResponding {
 
   func processTranscribedText(_ text: String) async {
     processedText = text
+    processingError = errorToReport
 
     if shouldWaitForRelease {
       await withCheckedContinuation { continuation in

@@ -20,10 +20,15 @@ final class OnDeviceProcessor {
   var isProcessing = false
   var transcribedText = ""
   var generatedResponse = ""
+  var processingError: String? = nil
   var modelInfo = ""
 
   // Configuration properties
   let configuration: OnDeviceProcessorConfiguration
+
+  // Generation lifecycle
+  @ObservationIgnored private var generationTask: Task<Void, Never>?
+  @ObservationIgnored private var activeGenerationID = UUID()
 
   init(configuration: OnDeviceProcessorConfiguration = .ichiDefault) {
     self.configuration = configuration
@@ -70,14 +75,29 @@ final class OnDeviceProcessor {
 
     self.transcribedText = text
     self.generatedResponse = ""
+    self.processingError = nil
 
+    let generationID = UUID()
+    activeGenerationID = generationID
     isProcessing = true
-    await generateResponse(for: text)
-    isProcessing = false
+
+    let task = Task { [weak self] in
+      guard let self else { return }
+      await self.generateResponse(for: text, generationID: generationID)
+    }
+    generationTask = task
+    await task.value
+
+    // Only the run that is still current may flip the processing flag back;
+    // a cancelled run must not clobber the state of a newer run.
+    if activeGenerationID == generationID {
+      isProcessing = false
+      generationTask = nil
+    }
   }
 
   /// Generate a response for the given input text
-  private func generateResponse(for text: String) async {
+  private func generateResponse(for text: String, generationID: UUID) async {
     let chat: [Chat.Message] = [
       .system(configuration.systemPrompt),
       .user(text),
@@ -92,27 +112,57 @@ final class OnDeviceProcessor {
       // Set a random seed for generation
       MLXRandom.seed(UInt64(Date.timeIntervalSinceReferenceDate * 1000))
 
-      try await modelContainer.perform { (context: ModelContext) -> Void in
-        let lmInput = try await context.processor.prepare(input: userInput)
-        let stream = try MLXLMCommon.generate(
-          input: lmInput, parameters: configuration.generateParameters, context: context)
+      // Token chunks are funneled through a single AsyncStream consumed by one
+      // MainActor task, so appends happen exactly in generation order.
+      let (chunks, chunkContinuation) = AsyncStream.makeStream(of: String.self)
 
-        // Generate and output in batches
-        for await output in stream {
-          if let chunk = output.chunk {
-            Task { @MainActor [chunk] in
-              self.generatedResponse += chunk
+      let consumer = Task { @MainActor [weak self] in
+        for await chunk in chunks {
+          guard let self, self.activeGenerationID == generationID else { return }
+          self.generatedResponse += chunk
+        }
+      }
+
+      var generationError: Error?
+      do {
+        try await modelContainer.perform { (context: ModelContext) -> Void in
+          let lmInput = try await context.processor.prepare(input: userInput)
+          let stream = try MLXLMCommon.generate(
+            input: lmInput, parameters: configuration.generateParameters, context: context)
+
+          // Generate and output in batches, stopping as soon as the run is cancelled.
+          for await output in stream {
+            if Task.isCancelled { break }
+            if let chunk = output.chunk {
+              chunkContinuation.yield(chunk)
             }
           }
         }
+      } catch {
+        generationError = error
       }
+
+      chunkContinuation.finish()
+      await consumer.value
+
+      if let generationError {
+        throw generationError
+      }
+    } catch is CancellationError {
+      // Cancelled runs end silently; the UI state is handled by the caller.
     } catch {
-      generatedResponse = "Failed: \(error)"
+      // Route errors to a dedicated property instead of the response text so
+      // downstream consumers (like TTS) never speak raw error descriptions.
+      guard activeGenerationID == generationID else { return }
+      processingError = error.localizedDescription
     }
   }
 
   /// Cancel the current processing task
   func cancelProcessing() {
+    activeGenerationID = UUID()
+    generationTask?.cancel()
+    generationTask = nil
     isProcessing = false
   }
 }
