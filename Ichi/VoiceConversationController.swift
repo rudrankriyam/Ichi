@@ -110,6 +110,14 @@ final class VoiceConversationController {
     await responder.processTranscribedText(requestText)
     guard activeRunID == runID, !Task.isCancelled else { return }
 
+    if let processingError = responder.processingError {
+      logger.error("Response generation failed: \(processingError)")
+      stopMirroringDependencyText()
+      state = .error
+      transcriptText = "Response generation failed. Please try again."
+      return
+    }
+
     let response = responder.generatedResponse.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !response.isEmpty else {
       stopMirroringDependencyText()

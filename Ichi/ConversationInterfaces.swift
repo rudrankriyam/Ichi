@@ -14,6 +14,7 @@ protocol SpeechRecognizing: AnyObject {
 @MainActor
 protocol ConversationalResponding: AnyObject {
   var generatedResponse: String { get }
+  var processingError: String? { get }
 
   func processTranscribedText(_ text: String) async
   func cancelProcessing()

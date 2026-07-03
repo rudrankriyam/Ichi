@@ -6,7 +6,7 @@
 
 ## Overview
 
-Ichi is an experimental project that explores conversational AI capabilities across iOS, macOS, and visionOS. The project's name is inspired by a Japanese woman I met at a conference, who ignited the spark into coding again.
+Ichi is an experimental project that explores conversational AI capabilities on macOS (the only validated platform today), with iOS and visionOS as aspirational targets. The project's name is inspired by a Japanese woman I met at a conference, who ignited the spark into coding again.
 
 Last September, using online providers for speech-to-speech was expensive, and I wanted to take the on-device route instead. Local LLMs are still not there *yet*, but one day.
 

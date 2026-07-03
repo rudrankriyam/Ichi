@@ -333,64 +333,10 @@ final class SpeechRecognizer: NSObject, @preconcurrency SFSpeechRecognizerDelega
         }
 
         if let error = error {
-          self.logger.error("Recognition task error: \(error.localizedDescription)")
-          // Enhanced error logging
-          let nsError = error as NSError
-          self.logger.error("Detailed Error - Domain: \(nsError.domain), Code: \(nsError.code), UserInfo: \(nsError.userInfo)")
-
-          // Track consecutive errors to prevent infinite loops
-          let now = Date()
-          if let lastError = self.lastErrorTime, now.timeIntervalSince(lastError) < self.errorCooldownInterval {
-            self.consecutiveErrors += 1
-          } else {
-            self.consecutiveErrors = 1
-          }
-          self.lastErrorTime = now
-          
-          // If we've had too many consecutive errors, stop trying
-          if self.consecutiveErrors >= self.maxConsecutiveErrors {
-            self.logger.critical("Too many consecutive errors (\(self.consecutiveErrors)). Stopping speech recognition to prevent infinite loop.")
-            Task { @MainActor in
-              self.reset()
-              self.errorMessage = "Speech recognition has encountered repeated errors. Please restart the app or check your system permissions."
-              self.recognitionState = .error
-            }
-            return
-          }
-
-          if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 1101 {
-            self.logger.critical("CRITICAL: Received 1101 error. This indicates a failure in the speech recording client. Check microphone access and audio configuration.")
-            
-            // For error 1101, provide specific guidance but don't retry automatically
-            Task { @MainActor in
-              self.reset()
-              #if os(macOS)
-              self.errorMessage = "Microphone access denied. Please go to System Settings > Privacy & Security > Microphone and allow access for this app, then restart the app."
-              #else
-              self.errorMessage = "Microphone access issue detected. Please check your system permissions in Settings > Privacy & Security."
-              #endif
-              self.recognitionState = .error
-            }
-            return
-          }
-          
-          // Handle specific error cases
-          if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 203 {
-            self.logger.warning("Received kAFAssistantErrorDomain code 203. Retrying...")
-            // Only retry if we haven't had too many errors
-            if self.consecutiveErrors < 2 {
-              Task { @MainActor in
-                self.reset()
-                try? await Task.sleep(for: .seconds(1))
-                await self.startListening()
-              }
-              return
-            }
-          }
-
+          // Hop to the MainActor before touching any recognizer state; this
+          // callback arrives on an arbitrary queue.
           Task { @MainActor in
-            self.errorMessage = "Recognition error: \(error.localizedDescription)"
-            self.recognitionState = .error
+            self.handleRecognitionError(error)
           }
         }
 
@@ -433,6 +379,64 @@ final class SpeechRecognizer: NSObject, @preconcurrency SFSpeechRecognizerDelega
       recognitionTask = nil
       isListening = false
     }
+  }
+
+  /// Handle a recognition task error on the MainActor, tracking consecutive
+  /// errors and updating published state. Must only be called on the MainActor.
+  private func handleRecognitionError(_ error: Error) {
+    logger.error("Recognition task error: \(error.localizedDescription)")
+    // Enhanced error logging
+    let nsError = error as NSError
+    logger.error("Detailed Error - Domain: \(nsError.domain), Code: \(nsError.code), UserInfo: \(nsError.userInfo)")
+
+    // Track consecutive errors to prevent infinite loops
+    let now = Date()
+    if let lastError = lastErrorTime, now.timeIntervalSince(lastError) < errorCooldownInterval {
+      consecutiveErrors += 1
+    } else {
+      consecutiveErrors = 1
+    }
+    lastErrorTime = now
+
+    // If we've had too many consecutive errors, stop trying
+    if consecutiveErrors >= maxConsecutiveErrors {
+      logger.critical("Too many consecutive errors (\(self.consecutiveErrors)). Stopping speech recognition to prevent infinite loop.")
+      reset()
+      errorMessage = "Speech recognition has encountered repeated errors. Please restart the app or check your system permissions."
+      recognitionState = .error
+      return
+    }
+
+    if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 1101 {
+      logger.critical("CRITICAL: Received 1101 error. This indicates a failure in the speech recording client. Check microphone access and audio configuration.")
+
+      // For error 1101, provide specific guidance but don't retry automatically
+      reset()
+      #if os(macOS)
+        errorMessage = "Microphone access denied. Please go to System Settings > Privacy & Security > Microphone and allow access for this app, then restart the app."
+      #else
+        errorMessage = "Microphone access issue detected. Please check your system permissions in Settings > Privacy & Security."
+      #endif
+      recognitionState = .error
+      return
+    }
+
+    // Handle specific error cases
+    if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 203 {
+      logger.warning("Received kAFAssistantErrorDomain code 203. Retrying...")
+      // Only retry if we haven't had too many errors
+      if consecutiveErrors < 2 {
+        Task { @MainActor in
+          self.reset()
+          try? await Task.sleep(for: .seconds(1))
+          await self.startListening()
+        }
+        return
+      }
+    }
+
+    errorMessage = "Recognition error: \(error.localizedDescription)"
+    recognitionState = .error
   }
 
   /// Stop listening and finalize transcription
