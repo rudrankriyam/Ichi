@@ -226,6 +226,13 @@ final class SpeechRecognizer: NSObject, @preconcurrency SFSpeechRecognizerDelega
       return
     }
 
+    guard speechRecognizer.supportsOnDeviceRecognition else {
+      logger.error("On-device speech recognition not available. Cannot start listening.")
+      recognitionState = .error
+      errorMessage = "On-device speech recognition is not available for the current language or device."
+      return
+    }
+
     do {
       logger.log("Configuring audio session and recognition request.")
       // Configure audio session
@@ -239,7 +246,7 @@ final class SpeechRecognizer: NSObject, @preconcurrency SFSpeechRecognizerDelega
       }
 
       // Create and configure the speech recognition request
-      recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+      recognitionRequest = SpeechRecognitionRequestFactory.makeAudioBufferRecognitionRequest()
       guard let recognitionRequest = recognitionRequest else {
         logger.critical("Unable to create SFSpeechAudioBufferRecognitionRequest.")
         throw NSError(
@@ -247,8 +254,7 @@ final class SpeechRecognizer: NSObject, @preconcurrency SFSpeechRecognizerDelega
           userInfo: [NSLocalizedDescriptionKey: "Unable to create recognition request"])
       }
 
-      recognitionRequest.shouldReportPartialResults = true
-      logger.log("Recognition request configured for partial results.")
+      logger.log("Recognition request configured for on-device partial results.")
 
       // Configure audio input
       let inputNode = audioEngine.inputNode
