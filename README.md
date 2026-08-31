@@ -19,5 +19,3 @@ Last September, using online providers for speech-to-speech was expensive, and I
 - **Apple Platform UI**: SwiftUI app shell, currently validated on macOS while the MLX audio stack evolves
 - **Beautiful UI**: Modern SwiftUI interface with smooth animations
 - **Onboarding**: Guided setup with model downloads
-
-[![Star History Chart](https://api.star-history.com/svg?repos=rudrankriyam/Ichi&type=Date)](https://star-history.com/#rudrankriyam/Ichi&Date)
